@@ -1,0 +1,36 @@
+server:
+  port: 8080
+  mode: release
+  read_timeout: 10
+  write_timeout: 10
+
+database:
+  driver: mysql
+  host: 127.0.0.1
+  port: 3306
+  username: root
+  password: '000000'
+  database: gsystes
+  charset: utf8mb4
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: gsystes-jwt-secret-key-change-in-production
+  issuer: gsystes
+  expire_hours: 24
+
+log:
+  level: info
+  filename: logs/gsystes.log
+  max_size: 100
+  max_backups: 7
+  max_age: 30
+  compress: true
