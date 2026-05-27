@@ -69,6 +69,14 @@ func (r *permissionRepository) FindByID(id uint) (*domainEntity.Permission, erro
 	return r.toDomain(&m), nil
 }
 
+func (r *permissionRepository) FindByCode(code string) (*domainEntity.Permission, error) {
+	var m model.Permission
+	if err := r.db.Where("code = ?", code).First(&m).Error; err != nil {
+		return nil, err
+	}
+	return r.toDomain(&m), nil
+}
+
 func (r *permissionRepository) FindAll() ([]domainEntity.Permission, error) {
 	var models []model.Permission
 	if err := r.db.Order("sort ASC").Find(&models).Error; err != nil {
@@ -81,14 +89,34 @@ func (r *permissionRepository) FindAll() ([]domainEntity.Permission, error) {
 	return entities, nil
 }
 
+func (r *permissionRepository) FindByPage(page, pageSize int) ([]domainEntity.Permission, int64, error) {
+	var models []model.Permission
+	var total int64
+
+	if err := r.db.Model(&model.Permission{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := r.db.Offset(offset).Limit(pageSize).Order("sort ASC").Find(&models).Error; err != nil {
+		return nil, 0, err
+	}
+
+	entities := make([]domainEntity.Permission, len(models))
+	for i, m := range models {
+		entities[i] = *r.toDomain(&m)
+	}
+	return entities, total, nil
+}
+
 func (r *permissionRepository) FindByRoleID(roleID uint) ([]domainEntity.Permission, error) {
 	var models []model.Permission
 	err := r.db.Raw(`
-        SELECT p.* FROM sys_permissions p
-        INNER JOIN sys_role_permissions rp ON p.id = rp.permission_id
-        WHERE rp.role_id = ?
-        ORDER BY p.sort ASC
-    `, roleID).Scan(&models).Error
+		SELECT p.* FROM sys_permissions p
+		INNER JOIN sys_role_permissions rp ON p.id = rp.permission_id
+		WHERE rp.role_id = ?
+		ORDER BY p.sort ASC
+	`, roleID).Scan(&models).Error
 	if err != nil {
 		return nil, err
 	}

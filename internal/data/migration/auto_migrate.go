@@ -11,6 +11,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&model.User{},
 		&model.Role{},
 		&model.Permission{},
+		&model.RolePermission{},
 	)
 	if err != nil {
 		logger.Error("auto migration failed", logger.ErrorField(err))

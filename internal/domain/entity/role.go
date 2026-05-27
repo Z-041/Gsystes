@@ -8,6 +8,14 @@ type Role struct {
 	Code        string
 	Description string
 	Status      int
+	Permissions []*Permission
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+type RoleStatus int
+
+const (
+	RoleStatusActive   RoleStatus = 1
+	RoleStatusInactive RoleStatus = 2
+)

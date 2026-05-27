@@ -1,0 +1,18 @@
+package dto
+
+type CreateRoleRequest struct {
+	Name        string `json:"name" binding:"required,max=64"`
+	Code        string `json:"code" binding:"required,max=64"`
+	Description string `json:"description" binding:"max=256"`
+}
+
+type UpdateRoleRequest struct {
+	Name        string `json:"name" binding:"required,max=64"`
+	Code        string `json:"code" binding:"required,max=64"`
+	Description string `json:"description" binding:"max=256"`
+	Status      int    `json:"status" binding:"oneof=1 2"`
+}
+
+type AssignPermissionsRequest struct {
+	PermissionIDs []uint `json:"permission_ids" binding:"required"`
+}

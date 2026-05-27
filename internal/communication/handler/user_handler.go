@@ -7,8 +7,8 @@ import (
 	"github.com/gsystes/backend/internal/communication/dto"
 	"github.com/gsystes/backend/internal/infrastructure/auth"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
-	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
+	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 )
 
 type UserHandler struct {

@@ -1,6 +1,5 @@
 package repository
 
-
 import "github.com/gsystes/backend/internal/domain/entity"
 
 type UserRepository interface {

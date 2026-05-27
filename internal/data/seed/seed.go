@@ -58,14 +58,26 @@ func InitSeedData(
 		{Name: "权限管理", Code: "perm:manage", Type: 1, Path: "/permissions", Sort: 11},
 		{Name: "分配权限", Code: "perm:assign", Type: 2, Path: "/permissions", Method: "POST", Sort: 12},
 	}
+	permIDs := make([]uint, 0, len(permissions))
 	for _, p := range permissions {
 		if err := permRepo.Create(p); err != nil {
 			return fmt.Errorf("failed to create permission %s: %w", p.Code, err)
 		}
+		var permModel model.Permission
+		if err := db.Where("code = ?", p.Code).First(&permModel).Error; err != nil {
+			return fmt.Errorf("failed to get permission %s: %w", p.Code, err)
+		}
+		permIDs = append(permIDs, permModel.ID)
 	}
 	logger.Info("default permissions created", logger.IntField("count", len(permissions)))
 
-	// 3. Create admin user
+	// 3. Assign all permissions to admin role
+	if err := roleRepo.AssignPermissions(roleModel.ID, permIDs); err != nil {
+		return fmt.Errorf("failed to assign permissions to admin role: %w", err)
+	}
+	logger.Info("permissions assigned to admin role", logger.IntField("count", len(permIDs)))
+
+	// 4. Create admin user
 	adminUser := &entity.User{
 		Username: "admin",
 		Nickname: "超级管理员",

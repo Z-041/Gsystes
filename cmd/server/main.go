@@ -55,10 +55,14 @@ func main() {
 	}
 
 	userOrchestration := orchestration.NewUserOrchestration(userDomainService, userRepo)
+	roleOrchestration := orchestration.NewRoleOrchestration(roleRepo, permRepo)
+	permOrchestration := orchestration.NewPermissionOrchestration(permRepo)
 
 	userHandler := handler.NewUserHandler(userOrchestration)
+	roleHandler := handler.NewRoleHandler(roleOrchestration)
+	permHandler := handler.NewPermissionHandler(permOrchestration)
 
-	r := router.SetupRouter(userHandler)
+	r := router.SetupRouter(userHandler, roleHandler, permHandler)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	logger.Info("server starting", logger.StringField("addr", addr))

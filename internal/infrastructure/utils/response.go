@@ -1,72 +1,72 @@
 package utils
 
 import (
-    "net/http"
+	"net/http"
 
-    "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 )
 
 type Response struct {
-    Code    int         `json:"code"`
-    Message string      `json:"message"`
-    Data    interface{} `json:"data,omitempty"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
 }
 
 type PageResult struct {
-    List     interface{} `json:"list"`
-    Total    int64       `json:"total"`
-    Page     int         `json:"page"`
-    PageSize int         `json:"page_size"`
+	List     interface{} `json:"list"`
+	Total    int64       `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"page_size"`
 }
 
 func Success(c *gin.Context, data interface{}) {
-    c.JSON(http.StatusOK, Response{
-        Code:    0,
-        Message: "success",
-        Data:    data,
-    })
+	c.JSON(http.StatusOK, Response{
+		Code:    0,
+		Message: "success",
+		Data:    data,
+	})
 }
 
 func SuccessWithMessage(c *gin.Context, message string, data interface{}) {
-    c.JSON(http.StatusOK, Response{
-        Code:    0,
-        Message: message,
-        Data:    data,
-    })
+	c.JSON(http.StatusOK, Response{
+		Code:    0,
+		Message: message,
+		Data:    data,
+	})
 }
 
 func Error(c *gin.Context, httpStatus int, message string) {
-    c.JSON(httpStatus, Response{
-        Code:    -1,
-        Message: message,
-    })
+	c.JSON(httpStatus, Response{
+		Code:    -1,
+		Message: message,
+	})
 }
 
 func BadRequest(c *gin.Context, message string) {
-    Error(c, http.StatusBadRequest, message)
+	Error(c, http.StatusBadRequest, message)
 }
 
 func Unauthorized(c *gin.Context, message string) {
-    Error(c, http.StatusUnauthorized, message)
+	Error(c, http.StatusUnauthorized, message)
 }
 
 func Forbidden(c *gin.Context, message string) {
-    Error(c, http.StatusForbidden, message)
+	Error(c, http.StatusForbidden, message)
 }
 
 func NotFound(c *gin.Context, message string) {
-    Error(c, http.StatusNotFound, message)
+	Error(c, http.StatusNotFound, message)
 }
 
 func InternalError(c *gin.Context, message string) {
-    Error(c, http.StatusInternalServerError, message)
+	Error(c, http.StatusInternalServerError, message)
 }
 
 func PageSuccess(c *gin.Context, list interface{}, total int64, page int, pageSize int) {
-    Success(c, PageResult{
-        List:     list,
-        Total:    total,
-        Page:     page,
-        PageSize: pageSize,
-    })
+	Success(c, PageResult{
+		List:     list,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	})
 }
