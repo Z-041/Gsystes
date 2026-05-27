@@ -2,7 +2,6 @@ package utils
 
 import (
     "github.com/gin-gonic/gin"
-    "github.com/gin-gonic/gin/binding"
     "github.com/go-playground/validator/v10"
 )
 
@@ -24,7 +23,7 @@ func formatValidationError(err error) []ValidError {
         for _, e := range errs {
             errors = append(errors, ValidError{
                 Key:     e.Field(),
-                Message: e.Translate(binding.Validator.Engine().(*validator.Validate)),
+                Message: e.Error(),
             })
         }
     } else {
