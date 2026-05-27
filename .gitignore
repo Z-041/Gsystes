@@ -1,0 +1,33 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go
+*.o
+*.a
+*.mod~
+*.sum~
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+
+# Environment
+.env
+.env.local
