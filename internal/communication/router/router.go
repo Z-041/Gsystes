@@ -10,6 +10,8 @@ func SetupRouter(
 	userHandler *handler.UserHandler,
 	roleHandler *handler.RoleHandler,
 	permHandler *handler.PermissionHandler,
+	operationLogHandler *handler.OperationLogHandler,
+	operationLogMid *mid.OperationLogMiddleware,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -18,10 +20,13 @@ func SetupRouter(
 	r.Use(mid.RequestLogger())
 
 	api := r.Group("/api/v1")
+	api.Use(operationLogMid.Handle())
 	{
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", userHandler.Login)
+			auth.GET("/menus", mid.AuthRequired(), userHandler.GetCurrentMenus)
+			auth.GET("/permissions", mid.AuthRequired(), userHandler.GetCurrentPermissions)
 		}
 
 		users := api.Group("/users")
@@ -33,6 +38,9 @@ func SetupRouter(
 			users.GET("/:id", userHandler.Get)
 			users.GET("", userHandler.List)
 			users.PUT("/password", userHandler.ChangePassword)
+			users.PUT("/:id/role", userHandler.AssignRole)
+			users.POST("/batch/role", userHandler.BatchAssignRole)
+			users.GET("/by-role/:roleId", userHandler.GetUsersByRole)
 		}
 
 		roles := api.Group("/roles")
@@ -57,6 +65,12 @@ func SetupRouter(
 			permissions.DELETE("/:id", permHandler.Delete)
 			permissions.GET("/:id", permHandler.Get)
 			permissions.GET("", permHandler.List)
+		}
+
+		logs := api.Group("/logs")
+		logs.Use(mid.AuthRequired())
+		{
+			logs.GET("", operationLogHandler.List)
 		}
 	}
 

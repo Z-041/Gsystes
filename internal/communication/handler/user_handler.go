@@ -134,6 +134,15 @@ func (h *UserHandler) Get(c *gin.Context) {
 		return
 	}
 
+	roleInfo := gin.H{}
+	if user.Role != nil {
+		roleInfo = gin.H{
+			"id":   user.Role.ID,
+			"name": user.Role.Name,
+			"code": user.Role.Code,
+		}
+	}
+
 	utils.Success(c, gin.H{
 		"id":         user.ID,
 		"username":   user.Username,
@@ -143,6 +152,7 @@ func (h *UserHandler) Get(c *gin.Context) {
 		"avatar":     user.Avatar,
 		"status":     user.Status,
 		"role_id":    user.RoleID,
+		"role":       roleInfo,
 		"created_at": user.CreatedAt,
 		"updated_at": user.UpdatedAt,
 	})
@@ -168,6 +178,9 @@ func (h *UserHandler) List(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		conditions["status = ?"] = status
 	}
+	if roleID := c.Query("role_id"); roleID != "" {
+		conditions["role_id = ?"] = roleID
+	}
 
 	users, total, err := h.userOrchestration.ListUsers(page, pageSize, conditions)
 	if err != nil {
@@ -177,6 +190,14 @@ func (h *UserHandler) List(c *gin.Context) {
 
 	userList := make([]gin.H, len(users))
 	for i, u := range users {
+		roleInfo := gin.H{}
+		if u.Role != nil {
+			roleInfo = gin.H{
+				"id":   u.Role.ID,
+				"name": u.Role.Name,
+				"code": u.Role.Code,
+			}
+		}
 		userList[i] = gin.H{
 			"id":         u.ID,
 			"username":   u.Username,
@@ -186,6 +207,7 @@ func (h *UserHandler) List(c *gin.Context) {
 			"avatar":     u.Avatar,
 			"status":     u.Status,
 			"role_id":    u.RoleID,
+			"role":       roleInfo,
 			"created_at": u.CreatedAt,
 		}
 	}
@@ -208,4 +230,96 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+}
+
+func (h *UserHandler) AssignRole(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "invalid user id")
+		return
+	}
+
+	var req struct {
+		RoleID uint `json:"role_id" binding:"required"`
+	}
+	valErrors := utils.BindAndValidate(c, &req)
+	if valErrors != nil {
+		utils.BadRequest(c, "invalid request parameters")
+		return
+	}
+
+	if err := h.userOrchestration.AssignRole(uint(id), req.RoleID); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	utils.Success(c, nil)
+}
+
+func (h *UserHandler) BatchAssignRole(c *gin.Context) {
+	var req dto.BatchAssignRoleRequest
+	valErrors := utils.BindAndValidate(c, &req)
+	if valErrors != nil {
+		utils.BadRequest(c, "invalid request parameters")
+		return
+	}
+
+	if err := h.userOrchestration.BatchAssignRole(&orchestration.BatchAssignRoleRequest{
+		UserIDs: req.UserIDs,
+		RoleID:  req.RoleID,
+	}); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	utils.Success(c, nil)
+}
+
+func (h *UserHandler) GetUsersByRole(c *gin.Context) {
+	roleIDStr := c.Param("roleId")
+	roleID, err := strconv.ParseUint(roleIDStr, 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "invalid role id")
+		return
+	}
+
+	users, err := h.userOrchestration.GetUsersByRole(uint(roleID))
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	userList := make([]gin.H, len(users))
+	for i, u := range users {
+		userList[i] = gin.H{
+			"id":       u.ID,
+			"username": u.Username,
+			"nickname": u.Nickname,
+			"email":    u.Email,
+			"status":   u.Status,
+		}
+	}
+
+	utils.Success(c, userList)
+}
+
+func (h *UserHandler) GetCurrentMenus(c *gin.Context) {
+	userID := infraMiddleware.GetUserID(c)
+	menus, err := h.userOrchestration.GetCurrentUserMenus(userID)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.Success(c, menus)
+}
+
+func (h *UserHandler) GetCurrentPermissions(c *gin.Context) {
+	userID := infraMiddleware.GetUserID(c)
+	codes, err := h.userOrchestration.GetCurrentUserPermissions(userID)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.Success(c, codes)
 }

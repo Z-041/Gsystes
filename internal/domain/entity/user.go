@@ -12,6 +12,7 @@ type User struct {
 	Avatar    string
 	Status    int
 	RoleID    uint
+	Role      *Role
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

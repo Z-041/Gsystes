@@ -9,4 +9,6 @@ type UserRepository interface {
 	FindByID(id uint) (*entity.User, error)
 	FindByUsername(username string) (*entity.User, error)
 	FindByPage(page, pageSize int, conditions map[string]interface{}) ([]entity.User, int64, error)
+	FindByRoleID(roleID uint) ([]entity.User, error)
+	BatchUpdateRole(userIDs []uint, roleID uint) error
 }

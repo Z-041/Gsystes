@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gsystes/backend/internal/communication/handler"
+	mid "github.com/gsystes/backend/internal/communication/middleware"
 	"github.com/gsystes/backend/internal/communication/router"
 	"github.com/gsystes/backend/internal/data/migration"
 	dataRepo "github.com/gsystes/backend/internal/data/repository"
@@ -47,6 +48,7 @@ func main() {
 	userRepo := dataRepo.NewUserRepository(db)
 	roleRepo := dataRepo.NewRoleRepository(db)
 	permRepo := dataRepo.NewPermissionRepository(db)
+	operationLogRepo := dataRepo.NewOperationLogRepository(db)
 
 	userDomainService := domainService.NewUserDomainService(userRepo)
 
@@ -54,15 +56,19 @@ func main() {
 		logger.Fatal("failed to init seed data", logger.ErrorField(err))
 	}
 
-	userOrchestration := orchestration.NewUserOrchestration(userDomainService, userRepo)
+	userOrchestration := orchestration.NewUserOrchestration(userDomainService, userRepo, roleRepo)
 	roleOrchestration := orchestration.NewRoleOrchestration(roleRepo, permRepo)
 	permOrchestration := orchestration.NewPermissionOrchestration(permRepo)
+	logOrchestration := orchestration.NewOperationLogOrchestration(operationLogRepo)
 
 	userHandler := handler.NewUserHandler(userOrchestration)
 	roleHandler := handler.NewRoleHandler(roleOrchestration)
 	permHandler := handler.NewPermissionHandler(permOrchestration)
+	logHandler := handler.NewOperationLogHandler(logOrchestration)
 
-	r := router.SetupRouter(userHandler, roleHandler, permHandler)
+	operationLogMid := mid.NewOperationLogMiddleware(operationLogRepo)
+
+	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, operationLogMid)
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	logger.Info("server starting", logger.StringField("addr", addr))

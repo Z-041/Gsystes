@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+
 	"github.com/gsystes/backend/internal/domain/entity"
 	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	domainService "github.com/gsystes/backend/internal/domain/service"
@@ -9,15 +11,18 @@ import (
 type UserOrchestration struct {
 	userDomainService *domainService.UserDomainService
 	userRepo          domainRepo.UserRepository
+	roleRepo          domainRepo.RoleRepository
 }
 
 func NewUserOrchestration(
 	userDomainService *domainService.UserDomainService,
 	userRepo domainRepo.UserRepository,
+	roleRepo domainRepo.RoleRepository,
 ) *UserOrchestration {
 	return &UserOrchestration{
 		userDomainService: userDomainService,
 		userRepo:          userRepo,
+		roleRepo:          roleRepo,
 	}
 }
 
@@ -49,7 +54,16 @@ type LoginResponse struct {
 	Token string
 }
 
+type BatchAssignRoleRequest struct {
+	UserIDs []uint
+	RoleID  uint
+}
+
 func (s *UserOrchestration) CreateUser(req *CreateUserRequest) (*entity.User, error) {
+	if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
+		return nil, errors.New("role not found")
+	}
+
 	user := &entity.User{
 		Username: req.Username,
 		Nickname: req.Nickname,
@@ -69,6 +83,12 @@ func (s *UserOrchestration) UpdateUser(req *UpdateUserRequest) error {
 	user, err := s.userRepo.FindByID(req.ID)
 	if err != nil {
 		return err
+	}
+
+	if req.RoleID > 0 {
+		if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
+			return errors.New("role not found")
+		}
 	}
 
 	user.Nickname = req.Nickname
@@ -111,4 +131,98 @@ func (s *UserOrchestration) Login(req *LoginRequest, tokenGenerator func(userID 
 
 func (s *UserOrchestration) ChangePassword(userID uint, oldPassword, newPassword string) error {
 	return s.userDomainService.UpdatePassword(userID, oldPassword, newPassword)
+}
+
+func (s *UserOrchestration) AssignRole(userID uint, roleID uint) error {
+	if _, err := s.userRepo.FindByID(userID); err != nil {
+		return errors.New("user not found")
+	}
+	if _, err := s.roleRepo.FindByID(roleID); err != nil {
+		return errors.New("role not found")
+	}
+	return s.userRepo.Update(&entity.User{ID: userID, RoleID: roleID})
+}
+
+func (s *UserOrchestration) BatchAssignRole(req *BatchAssignRoleRequest) error {
+	if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
+		return errors.New("role not found")
+	}
+	if len(req.UserIDs) == 0 {
+		return errors.New("user ids is required")
+	}
+	return s.userRepo.BatchUpdateRole(req.UserIDs, req.RoleID)
+}
+
+func (s *UserOrchestration) GetUsersByRole(roleID uint) ([]entity.User, error) {
+	if _, err := s.roleRepo.FindByID(roleID); err != nil {
+		return nil, errors.New("role not found")
+	}
+	return s.userRepo.FindByRoleID(roleID)
+}
+
+type MenuTreeNode struct {
+	ID       uint            `json:"id"`
+	Name     string          `json:"name"`
+	Code     string          `json:"code"`
+	Path     string          `json:"path"`
+	Sort     int             `json:"sort"`
+	Children []*MenuTreeNode `json:"children"`
+}
+
+func buildMenuTree(permissions []entity.Permission, parentID uint) []*MenuTreeNode {
+	var nodes []*MenuTreeNode
+	for _, p := range permissions {
+		if p.ParentID == parentID && p.Type == 1 {
+			node := &MenuTreeNode{
+				ID:       p.ID,
+				Name:     p.Name,
+				Code:     p.Code,
+				Path:     p.Path,
+				Sort:     p.Sort,
+				Children: buildMenuTree(permissions, p.ID),
+			}
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
+}
+
+func (s *UserOrchestration) GetCurrentUserPermissions(userID uint) ([]string, error) {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	if user.RoleID == 0 {
+		return nil, nil
+	}
+	permissions, err := s.roleRepo.GetPermissions(user.RoleID)
+	if err != nil {
+		return nil, err
+	}
+	codes := make([]string, len(permissions))
+	for i, p := range permissions {
+		codes[i] = p.Code
+	}
+	return codes, nil
+}
+
+func (s *UserOrchestration) GetCurrentUserMenus(userID uint) ([]*MenuTreeNode, error) {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	if user.RoleID == 0 {
+		return nil, nil
+	}
+	permissions, err := s.roleRepo.GetPermissions(user.RoleID)
+	if err != nil {
+		return nil, err
+	}
+	menuPerms := make([]entity.Permission, 0, len(permissions))
+	for _, p := range permissions {
+		if p.Type == 1 {
+			menuPerms = append(menuPerms, p)
+		}
+	}
+	return buildMenuTree(menuPerms, 0), nil
 }
