@@ -8,16 +8,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/domain/entity"
-	domainRepo "github.com/gsystes/backend/internal/domain/repository"
+	"github.com/gsystes/backend/internal/infrastructure/async"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
 )
 
 type OperationLogMiddleware struct {
-	repo domainRepo.OperationLogRepository
+	writer *async.OperationLogWriter
 }
 
-func NewOperationLogMiddleware(repo domainRepo.OperationLogRepository) *OperationLogMiddleware {
-	return &OperationLogMiddleware{repo: repo}
+func NewOperationLogMiddleware(writer *async.OperationLogWriter) *OperationLogMiddleware {
+	return &OperationLogMiddleware{writer: writer}
 }
 
 var sensitiveKeys = []string{"password", "old_password", "new_password", "secret", "token", "access_token", "refresh_token"}
@@ -75,9 +75,7 @@ func (m *OperationLogMiddleware) Handle() gin.HandlerFunc {
 		}
 
 		if statusCode >= 400 || method != "GET" {
-			go func() {
-				_ = m.repo.Create(entry)
-			}()
+			m.writer.Write(entry)
 		}
 	}
 }

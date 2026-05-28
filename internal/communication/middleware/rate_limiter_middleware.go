@@ -24,6 +24,7 @@ type rateLimiter struct {
 	visitors map[string]*windowEntry
 	mu       sync.RWMutex
 	once     sync.Once
+	stopCh   chan struct{}
 }
 
 type windowEntry struct {
@@ -33,6 +34,11 @@ type windowEntry struct {
 
 var memoryLimiter = &rateLimiter{
 	visitors: make(map[string]*windowEntry),
+	stopCh:   make(chan struct{}),
+}
+
+func StopMemoryLimiter() {
+	close(memoryLimiter.stopCh)
 }
 
 func (rl *rateLimiter) startCleanup() {
@@ -40,8 +46,13 @@ func (rl *rateLimiter) startCleanup() {
 		go func() {
 			ticker := time.NewTicker(cleanupInterval)
 			defer ticker.Stop()
-			for range ticker.C {
-				rl.cleanup()
+			for {
+				select {
+				case <-ticker.C:
+					rl.cleanup()
+				case <-rl.stopCh:
+					return
+				}
 			}
 		}()
 	})

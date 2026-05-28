@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gsystes/backend/internal/communication/handler"
 	mid "github.com/gsystes/backend/internal/communication/middleware"
@@ -11,6 +17,7 @@ import (
 	dataRepo "github.com/gsystes/backend/internal/data/repository"
 	"github.com/gsystes/backend/internal/data/seed"
 	domainService "github.com/gsystes/backend/internal/domain/service"
+	"github.com/gsystes/backend/internal/infrastructure/async"
 	"github.com/gsystes/backend/internal/infrastructure/cache"
 	"github.com/gsystes/backend/internal/infrastructure/config"
 	"github.com/gsystes/backend/internal/infrastructure/database"
@@ -79,6 +86,9 @@ func main() {
 		logger.Fatal("failed to init seed data", logger.ErrorField(err))
 	}
 
+	logWriter := async.NewOperationLogWriter(operationLogRepo, 4, 4096)
+	logWriter.Start()
+
 	userOrchestration := orchestration.NewUserOrchestration(userDomainService, userRepo, roleRepo)
 	roleOrchestration := orchestration.NewRoleOrchestration(roleRepo, permRepo)
 	permOrchestration := orchestration.NewPermissionOrchestration(permRepo)
@@ -89,7 +99,7 @@ func main() {
 	permHandler := handler.NewPermissionHandler(permOrchestration)
 	logHandler := handler.NewOperationLogHandler(logOrchestration)
 
-	operationLogMid := mid.NewOperationLogMiddleware(operationLogRepo)
+	operationLogMid := mid.NewOperationLogMiddleware(logWriter)
 	permMid := mid.NewPermissionMiddleware(roleRepo)
 
 	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, operationLogMid, permMid)
@@ -97,8 +107,43 @@ func main() {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
-	logger.Info("server starting", logger.StringField("addr", addr))
-	if err := r.Run(addr); err != nil {
-		logger.Fatal("server failed to start", logger.ErrorField(err))
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: r,
 	}
+
+	go func() {
+		logger.Info("server starting", logger.StringField("addr", addr))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("server failed to start", logger.ErrorField(err))
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Error("server forced to shutdown", logger.ErrorField(err))
+	}
+
+	logWriter.Stop()
+	mid.StopMemoryLimiter()
+
+	if err := cache.Close(); err != nil {
+		logger.Error("failed to close redis", logger.ErrorField(err))
+	}
+	if err := database.Close(); err != nil {
+		logger.Error("failed to close database", logger.ErrorField(err))
+	}
+	if err := logger.Sync(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to sync logger: %v\n", err)
+	}
+
+	logger.Info("server exited gracefully")
 }
