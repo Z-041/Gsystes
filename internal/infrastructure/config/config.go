@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -91,7 +92,10 @@ type CORSConfig struct {
 	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
-var globalConfig *Config
+var (
+	globalConfig *Config
+	configMu     sync.RWMutex
+)
 
 func LoadConfig(configPath string) (*Config, error) {
 	v := viper.New()
@@ -112,7 +116,9 @@ func LoadConfig(configPath string) (*Config, error) {
 		if err := v.Unmarshal(&newConfig); err != nil {
 			return
 		}
+		configMu.Lock()
 		globalConfig = &newConfig
+		configMu.Unlock()
 	})
 
 	var cfg Config
@@ -120,14 +126,21 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	configMu.Lock()
 	globalConfig = &cfg
+	configMu.Unlock()
+
 	return globalConfig, nil
 }
 
 func GetConfig() *Config {
+	configMu.RLock()
+	defer configMu.RUnlock()
 	return globalConfig
 }
 
 func SetConfigForTesting(cfg *Config) {
+	configMu.Lock()
 	globalConfig = cfg
+	configMu.Unlock()
 }

@@ -1,12 +1,15 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"fmt"
 
 	"github.com/gsystes/backend/internal/domain/entity"
 	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	domainService "github.com/gsystes/backend/internal/domain/service"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
+	"golang.org/x/sync/errgroup"
 )
 
 type UserOrchestration struct {
@@ -289,28 +292,82 @@ func (s *UserOrchestration) UpdateStatus(userID uint, status int) error {
 }
 
 func (s *UserOrchestration) ImportUsers(users []*CreateUserRequest) error {
-	entities := make([]*entity.User, 0, len(users))
-	for _, req := range users {
-		if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
-			return errors.New("role not found for username: " + req.Username)
-		}
-		existing, _ := s.userRepo.FindByUsername(req.Username)
-		if existing != nil {
-			return errors.New("username already exists: " + req.Username)
-		}
-		hashedPassword, err := utils.HashPassword(req.Password)
-		if err != nil {
-			return err
-		}
-		entities = append(entities, &entity.User{
-			Username: req.Username,
-			Password: hashedPassword,
-			Nickname: req.Nickname,
-			Email:    req.Email,
-			Phone:    req.Phone,
-			RoleID:   req.RoleID,
-			Status:   1,
+	type validatedUser struct {
+		entity *entity.User
+		err    error
+	}
+
+	reqCh := make(chan *CreateUserRequest, len(users))
+	resultCh := make(chan *validatedUser, len(users))
+	g, ctx := errgroup.WithContext(context.Background())
+
+	workerCount := 8
+	for i := 0; i < workerCount; i++ {
+		g.Go(func() error {
+			for req := range reqCh {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
+
+				if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
+					resultCh <- &validatedUser{err: fmt.Errorf("role not found: %s", req.Username)}
+					continue
+				}
+				existing, _ := s.userRepo.FindByUsername(req.Username)
+				if existing != nil {
+					resultCh <- &validatedUser{err: fmt.Errorf("username already exists: %s", req.Username)}
+					continue
+				}
+				hashedPassword, err := utils.HashPassword(req.Password)
+				if err != nil {
+					resultCh <- &validatedUser{err: err}
+					continue
+				}
+				resultCh <- &validatedUser{
+					entity: &entity.User{
+						Username: req.Username,
+						Password: hashedPassword,
+						Nickname: req.Nickname,
+						Email:    req.Email,
+						Phone:    req.Phone,
+						RoleID:   req.RoleID,
+						Status:   1,
+					},
+				}
+			}
+			return nil
 		})
 	}
+
+	go func() {
+		for _, req := range users {
+			reqCh <- req
+		}
+		close(reqCh)
+	}()
+
+	go func() {
+		g.Wait()
+		close(resultCh)
+	}()
+
+	var entities []*entity.User
+	for r := range resultCh {
+		if r.err != nil {
+			return r.err
+		}
+		entities = append(entities, r.entity)
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	if len(entities) == 0 {
+		return nil
+	}
+
 	return s.userRepo.BatchCreate(entities)
 }

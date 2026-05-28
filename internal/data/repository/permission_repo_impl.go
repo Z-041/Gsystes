@@ -45,6 +45,22 @@ func (r *permissionRepository) Create(p *domainEntity.Permission) error {
 	}).Error
 }
 
+func (r *permissionRepository) BatchCreate(permissions []*domainEntity.Permission) error {
+	models := make([]model.Permission, len(permissions))
+	for i, p := range permissions {
+		models[i] = model.Permission{
+			Name:     p.Name,
+			Code:     p.Code,
+			Type:     p.Type,
+			ParentID: p.ParentID,
+			Path:     p.Path,
+			Method:   p.Method,
+			Sort:     p.Sort,
+		}
+	}
+	return r.db.Create(&models).Error
+}
+
 func (r *permissionRepository) Update(p *domainEntity.Permission) error {
 	return r.db.Model(&model.Permission{}).Where("id = ?", p.ID).Updates(map[string]interface{}{
 		"name":      p.Name,

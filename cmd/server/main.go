@@ -23,6 +23,7 @@ import (
 	"github.com/gsystes/backend/internal/infrastructure/database"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
+	"golang.org/x/sync/errgroup"
 
 	_ "github.com/gsystes/backend/docs/swagger"
 	swaggerFiles "github.com/swaggo/files"
@@ -62,16 +63,21 @@ func main() {
 		panic(fmt.Sprintf("failed to init logger: %v", err))
 	}
 
-	if err := database.InitDatabase(cfg.Database); err != nil {
-		logger.Fatal("failed to init database", logger.ErrorField(err))
+	eg, _ := errgroup.WithContext(context.Background())
+
+	eg.Go(func() error {
+		return database.InitDatabase(cfg.Database)
+	})
+	eg.Go(func() error {
+		return cache.InitRedis(cfg.Redis)
+	})
+
+	if err := eg.Wait(); err != nil {
+		logger.Fatal("failed to initialize infrastructure", logger.ErrorField(err))
 	}
 
 	if err := migration.AutoMigrate(database.GetDB()); err != nil {
 		logger.Fatal("failed to auto migrate", logger.ErrorField(err))
-	}
-
-	if err := cache.InitRedis(cfg.Redis); err != nil {
-		logger.Warn("redis init failed, continuing without cache", logger.ErrorField(err))
 	}
 
 	db := database.GetDB()

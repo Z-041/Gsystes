@@ -230,6 +230,15 @@ func (m *mockPermRepo) Create(p *entity.Permission) error {
 	return nil
 }
 
+func (m *mockPermRepo) BatchCreate(permissions []*entity.Permission) error {
+	for _, p := range permissions {
+		if err := m.Create(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (m *mockPermRepo) Update(p *entity.Permission) error {
 	m.mu.Lock()
 	m.perms[p.ID] = p

@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/gsystes/backend/internal/domain/entity"
 	domainRepo "github.com/gsystes/backend/internal/domain/repository"
+	"golang.org/x/sync/errgroup"
 )
 
 type RoleOrchestration struct {
@@ -95,11 +97,27 @@ func (s *RoleOrchestration) AssignPermissions(req *AssignPermissionsRequest) err
 	if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
 		return errors.New("role not found")
 	}
+
+	g, ctx := errgroup.WithContext(context.Background())
 	for _, pid := range req.PermissionIDs {
-		if _, err := s.permRepo.FindByID(pid); err != nil {
-			return errors.New("permission not found: " + fmt.Sprintf("%d", pid))
-		}
+		pid := pid
+		g.Go(func() error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			if _, err := s.permRepo.FindByID(pid); err != nil {
+				return fmt.Errorf("permission not found: %d", pid)
+			}
+			return nil
+		})
 	}
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
 	return s.roleRepo.AssignPermissions(req.RoleID, req.PermissionIDs)
 }
 

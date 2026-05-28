@@ -11,8 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
+	"github.com/gsystes/backend/internal/domain/entity"
 	"github.com/gsystes/backend/internal/infrastructure/auth"
 	"github.com/gsystes/backend/internal/infrastructure/config"
+	"github.com/gsystes/backend/internal/infrastructure/logger"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
@@ -607,12 +609,17 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 
 	avatarURL := "/uploads/avatars/" + filename
 	userID := infraMiddleware.GetUserID(c)
-	if err := h.userOrchestration.UpdateAvatar(userID, avatarURL); err != nil {
-		utils.BadRequest(c, err.Error())
-		return
-	}
 
 	utils.Success(c, gin.H{"url": avatarURL})
+
+	go func() {
+		if err := h.userOrchestration.UpdateAvatar(userID, avatarURL); err != nil {
+			logger.Error("failed to update avatar in background",
+				logger.UintField("user_id", userID),
+				logger.ErrorField(err),
+			)
+		}
+	}()
 }
 
 // UpdateStatus godoc
@@ -733,24 +740,40 @@ func (h *UserHandler) ExportUsers(c *gin.Context) {
 	defer f.Close()
 
 	sheet := f.GetSheetName(0)
-	f.SetCellValue(sheet, "A1", "用户名")
-	f.SetCellValue(sheet, "B1", "昵称")
-	f.SetCellValue(sheet, "C1", "邮箱")
-	f.SetCellValue(sheet, "D1", "手机号")
-	f.SetCellValue(sheet, "E1", "状态")
-	f.SetCellValue(sheet, "F1", "角色ID")
+	headers := []string{"用户名", "昵称", "邮箱", "手机号", "状态", "角色ID"}
+	for i, header := range headers {
+		col := string(rune('A' + i))
+		f.SetCellValue(sheet, fmt.Sprintf("%s1", col), header)
+	}
 
-	page := 1
-	pageSize := 500
-	row := 2
+	type pageResult struct {
+		users []entity.User
+		page  int
+	}
+	fetchCh := make(chan pageResult, 4)
+	errCh := make(chan error, 1)
 
-	for {
-		users, total, err := h.userOrchestration.ListUsers(page, pageSize, nil)
-		if err != nil {
-			utils.InternalError(c, err.Error())
-			return
+	go func() {
+		page := 1
+		pageSize := 500
+		defer close(fetchCh)
+		for {
+			users, total, err := h.userOrchestration.ListUsers(page, pageSize, nil)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			fetchCh <- pageResult{users: users, page: page}
+			if int64(page*pageSize) >= total {
+				return
+			}
+			page++
 		}
-		for _, u := range users {
+	}()
+
+	row := 2
+	for res := range fetchCh {
+		for _, u := range res.users {
 			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), u.Username)
 			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), u.Nickname)
 			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), u.Email)
@@ -759,10 +782,13 @@ func (h *UserHandler) ExportUsers(c *gin.Context) {
 			f.SetCellValue(sheet, fmt.Sprintf("F%d", row), u.RoleID)
 			row++
 		}
-		if int64(page*pageSize) >= total {
-			break
-		}
-		page++
+	}
+
+	select {
+	case err := <-errCh:
+		utils.InternalError(c, err.Error())
+		return
+	default:
 	}
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

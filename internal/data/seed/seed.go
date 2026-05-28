@@ -60,16 +60,21 @@ func InitSeedData(
 		{Name: "操作日志", Code: "log:manage", Type: 1, Path: "/logs", Sort: 13},
 		{Name: "查询日志", Code: "log:read", Type: 2, Path: "/logs", Method: "GET", Sort: 14},
 	}
-	permIDs := make([]uint, 0, len(permissions))
-	for _, p := range permissions {
-		if err := permRepo.Create(p); err != nil {
-			return fmt.Errorf("failed to create permission %s: %w", p.Code, err)
-		}
-		var permModel model.Permission
-		if err := db.Where("code = ?", p.Code).First(&permModel).Error; err != nil {
-			return fmt.Errorf("failed to get permission %s: %w", p.Code, err)
-		}
-		permIDs = append(permIDs, permModel.ID)
+	if err := permRepo.BatchCreate(permissions); err != nil {
+		return fmt.Errorf("failed to create default permissions: %w", err)
+	}
+
+	codes := make([]string, len(permissions))
+	for i, p := range permissions {
+		codes[i] = p.Code
+	}
+	var permModels []model.Permission
+	if err := db.Where("code IN ?", codes).Order("sort ASC").Find(&permModels).Error; err != nil {
+		return fmt.Errorf("failed to query created permissions: %w", err)
+	}
+	permIDs := make([]uint, len(permModels))
+	for i, m := range permModels {
+		permIDs[i] = m.ID
 	}
 	logger.Info("default permissions created", logger.IntField("count", len(permissions)))
 
