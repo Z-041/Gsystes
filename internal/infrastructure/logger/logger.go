@@ -82,6 +82,17 @@ func GetLogger() *zap.Logger {
 	return globalLogger
 }
 
+func InitForTesting() {
+	if globalLogger != nil {
+		return
+	}
+	cfg := zap.NewProductionConfig()
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	cfg.OutputPaths = []string{"stdout"}
+	logger, _ := cfg.Build()
+	globalLogger = logger
+}
+
 func StringField(key, value string) zap.Field {
 	return zap.String(key, value)
 }

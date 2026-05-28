@@ -127,3 +127,7 @@ func LoadConfig(configPath string) (*Config, error) {
 func GetConfig() *Config {
 	return globalConfig
 }
+
+func SetConfigForTesting(cfg *Config) {
+	globalConfig = cfg
+}
