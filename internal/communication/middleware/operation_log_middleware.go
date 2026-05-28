@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"time"
 
@@ -19,6 +20,25 @@ func NewOperationLogMiddleware(repo domainRepo.OperationLogRepository) *Operatio
 	return &OperationLogMiddleware{repo: repo}
 }
 
+var sensitiveKeys = []string{"password", "old_password", "new_password", "secret", "token", "access_token", "refresh_token"}
+
+func sanitizeBody(body string) string {
+	if body == "" {
+		return ""
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &m); err != nil {
+		return body
+	}
+	for _, key := range sensitiveKeys {
+		if _, ok := m[key]; ok {
+			m[key] = "***"
+		}
+	}
+	result, _ := json.Marshal(m)
+	return string(result)
+}
+
 func (m *OperationLogMiddleware) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -29,7 +49,7 @@ func (m *OperationLogMiddleware) Handle() gin.HandlerFunc {
 		var body string
 		if c.Request.Body != nil {
 			data, _ := io.ReadAll(c.Request.Body)
-			body = string(data)
+			body = sanitizeBody(string(data))
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 		}
 

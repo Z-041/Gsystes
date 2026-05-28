@@ -13,8 +13,15 @@ func SetupRouter(
 	permHandler *handler.PermissionHandler,
 	operationLogHandler *handler.OperationLogHandler,
 	operationLogMid *mid.OperationLogMiddleware,
+	permMid *mid.PermissionMiddleware,
 ) *gin.Engine {
 	r := gin.New()
+
+	maxBodyMB := config.GetConfig().Server.MaxBodySize
+	if maxBodyMB <= 0 {
+		maxBodyMB = 8
+	}
+	r.MaxMultipartMemory = maxBodyMB << 20
 
 	r.Use(mid.Recovery())
 	r.Use(mid.CORS())
@@ -22,12 +29,16 @@ func SetupRouter(
 
 	r.Static("/uploads", config.GetConfig().Upload.Dir)
 
+	rlCfg := config.GetConfig().RateLimit
+	defaultLimit := mid.RateLimiter(rlCfg.DefaultRate, rlCfg.DefaultBurst, rlCfg.Window)
+	loginLimit := mid.RateLimiter(rlCfg.LoginRate, rlCfg.LoginBurst, rlCfg.Window)
+
 	api := r.Group("/api/v1")
-	api.Use(operationLogMid.Handle())
+	api.Use(operationLogMid.Handle(), defaultLimit)
 	{
 		auth := api.Group("/auth")
 		{
-			auth.POST("/login", userHandler.Login)
+			auth.POST("/login", loginLimit, userHandler.Login)
 			auth.GET("/menus", mid.AuthRequired(), userHandler.GetCurrentMenus)
 			auth.GET("/permissions", mid.AuthRequired(), userHandler.GetCurrentPermissions)
 		}
@@ -35,11 +46,11 @@ func SetupRouter(
 		users := api.Group("/users")
 		users.Use(mid.AuthRequired())
 		{
-			users.POST("", userHandler.Create)
-			users.PUT("/:id", userHandler.Update)
-			users.DELETE("/:id", userHandler.Delete)
-			users.GET("/:id", userHandler.Get)
-			users.GET("", userHandler.List)
+			users.POST("", permMid.Require("user:create"), userHandler.Create)
+			users.PUT("/:id", permMid.Require("user:update"), userHandler.Update)
+			users.DELETE("/:id", permMid.Require("user:delete"), userHandler.Delete)
+			users.GET("/:id", permMid.Require("user:read"), userHandler.Get)
+			users.GET("", permMid.Require("user:read"), userHandler.List)
 			users.PUT("/password", userHandler.ChangePassword)
 			users.PUT("/:id/role", userHandler.AssignRole)
 			users.POST("/batch/role", userHandler.BatchAssignRole)
@@ -56,31 +67,31 @@ func SetupRouter(
 		roles := api.Group("/roles")
 		roles.Use(mid.AuthRequired())
 		{
-			roles.GET("/all", roleHandler.ListAll)
-			roles.POST("", roleHandler.Create)
-			roles.PUT("/:id", roleHandler.Update)
-			roles.DELETE("/:id", roleHandler.Delete)
-			roles.GET("/:id", roleHandler.Get)
-			roles.GET("", roleHandler.List)
-			roles.POST("/:id/permissions", roleHandler.AssignPermissions)
-			roles.GET("/:id/permissions", roleHandler.GetPermissions)
+			roles.GET("/all", permMid.Require("role:read"), roleHandler.ListAll)
+			roles.POST("", permMid.Require("role:create"), roleHandler.Create)
+			roles.PUT("/:id", permMid.Require("role:update"), roleHandler.Update)
+			roles.DELETE("/:id", permMid.Require("role:delete"), roleHandler.Delete)
+			roles.GET("/:id", permMid.Require("role:read"), roleHandler.Get)
+			roles.GET("", permMid.Require("role:read"), roleHandler.List)
+			roles.POST("/:id/permissions", permMid.Require("perm:assign"), roleHandler.AssignPermissions)
+			roles.GET("/:id/permissions", permMid.Require("role:read"), roleHandler.GetPermissions)
 		}
 
 		permissions := api.Group("/permissions")
 		permissions.Use(mid.AuthRequired())
 		{
-			permissions.GET("/all", permHandler.ListAll)
-			permissions.POST("", permHandler.Create)
-			permissions.PUT("/:id", permHandler.Update)
-			permissions.DELETE("/:id", permHandler.Delete)
-			permissions.GET("/:id", permHandler.Get)
-			permissions.GET("", permHandler.List)
+			permissions.GET("/all", permMid.Require("perm:manage"), permHandler.ListAll)
+			permissions.POST("", permMid.Require("perm:manage"), permHandler.Create)
+			permissions.PUT("/:id", permMid.Require("perm:manage"), permHandler.Update)
+			permissions.DELETE("/:id", permMid.Require("perm:manage"), permHandler.Delete)
+			permissions.GET("/:id", permMid.Require("perm:manage"), permHandler.Get)
+			permissions.GET("", permMid.Require("perm:manage"), permHandler.List)
 		}
 
 		logs := api.Group("/logs")
 		logs.Use(mid.AuthRequired())
 		{
-			logs.GET("", operationLogHandler.List)
+			logs.GET("", permMid.Require("log:read"), operationLogHandler.List)
 		}
 	}
 

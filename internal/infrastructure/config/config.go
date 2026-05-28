@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -9,12 +10,14 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	Log      LogConfig      `mapstructure:"log"`
-	Upload   UploadConfig   `mapstructure:"upload"`
+	Server    ServerConfig    `mapstructure:"server"`
+	Database  DatabaseConfig  `mapstructure:"database"`
+	Redis     RedisConfig     `mapstructure:"redis"`
+	JWT       JWTConfig       `mapstructure:"jwt"`
+	Log       LogConfig       `mapstructure:"log"`
+	Upload    UploadConfig    `mapstructure:"upload"`
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+	CORS      CORSConfig      `mapstructure:"cors"`
 }
 
 type ServerConfig struct {
@@ -22,6 +25,7 @@ type ServerConfig struct {
 	Mode         string        `mapstructure:"mode"`
 	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
+	MaxBodySize  int64         `mapstructure:"max_body_size"`
 }
 
 type DatabaseConfig struct {
@@ -74,12 +78,29 @@ type UploadConfig struct {
 	AllowedExts []string `mapstructure:"allowed_exts"`
 }
 
+type RateLimitConfig struct {
+	Enabled      bool          `mapstructure:"enabled"`
+	DefaultRate  int           `mapstructure:"default_rate"`
+	DefaultBurst int           `mapstructure:"default_burst"`
+	Window       time.Duration `mapstructure:"window"`
+	LoginRate    int           `mapstructure:"login_rate"`
+	LoginBurst   int           `mapstructure:"login_burst"`
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
+}
+
 var globalConfig *Config
 
 func LoadConfig(configPath string) (*Config, error) {
 	v := viper.New()
 	v.SetConfigFile(configPath)
 	v.SetConfigType("yaml")
+
+	v.SetEnvPrefix("GSYSTES")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)

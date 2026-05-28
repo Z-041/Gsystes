@@ -138,3 +138,16 @@ func (r *userRepository) FindByRoleID(roleID uint) ([]domainEntity.User, error) 
 func (r *userRepository) BatchUpdateRole(userIDs []uint, roleID uint) error {
 	return r.db.Model(&model.User{}).Where("id IN ?", userIDs).Update("role_id", roleID).Error
 }
+
+func (r *userRepository) BatchCreate(users []*domainEntity.User) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for _, u := range users {
+			m := r.toModel(u)
+			if err := tx.Create(m).Error; err != nil {
+				return err
+			}
+			u.ID = m.ID
+		}
+		return nil
+	})
+}

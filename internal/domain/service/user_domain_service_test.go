@@ -61,6 +61,10 @@ func (m *mockUserRepo) BatchUpdateRole(userIDs []uint, roleID uint) error {
 	return nil
 }
 
+func (m *mockUserRepo) BatchCreate(users []*entity.User) error {
+	return nil
+}
+
 func TestCreateUser_Success(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserDomainService(repo)

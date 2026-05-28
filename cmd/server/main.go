@@ -90,8 +90,9 @@ func main() {
 	logHandler := handler.NewOperationLogHandler(logOrchestration)
 
 	operationLogMid := mid.NewOperationLogMiddleware(operationLogRepo)
+	permMid := mid.NewPermissionMiddleware(roleRepo)
 
-	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, operationLogMid)
+	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, operationLogMid, permMid)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

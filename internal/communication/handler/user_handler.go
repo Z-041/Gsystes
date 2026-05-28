@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,6 +18,12 @@ import (
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 	"github.com/xuri/excelize/v2"
 )
+
+var allowedMimeTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/gif":  true,
+}
 
 type UserHandler struct {
 	userOrchestration *orchestration.UserOrchestration
@@ -563,6 +570,15 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 		return
 	}
 
+	data := make([]byte, 512)
+	n, _ := file.Read(data)
+	mimeType := http.DetectContentType(data[:n])
+	if !allowedMimeTypes[mimeType] {
+		utils.BadRequest(c, "invalid file content, only jpg/png/gif images are allowed")
+		return
+	}
+	file.Seek(0, 0)
+
 	if header.Size > int64(uploadCfg.MaxSize)*1024*1024 {
 		utils.BadRequest(c, fmt.Sprintf("file too large, max %dMB", uploadCfg.MaxSize))
 		return
@@ -574,7 +590,7 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 		return
 	}
 
-	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), header.Filename)
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), filepath.Base(header.Filename))
 	savePath := filepath.Join(avatarDir, filename)
 
 	dst, err := os.Create(savePath)
@@ -705,7 +721,7 @@ func (h *UserHandler) ImportUsers(c *gin.Context) {
 
 // ExportUsers godoc
 // @Summary      批量导出用户
-// @Description  导出用户列表为 Excel 文件
+// @Description  导出用户列表为 Excel 文件（分页流式写入）
 // @Tags         用户管理
 // @Accept       json
 // @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
@@ -713,12 +729,6 @@ func (h *UserHandler) ImportUsers(c *gin.Context) {
 // @Success      200  {file}  binary
 // @Router       /users/export [get]
 func (h *UserHandler) ExportUsers(c *gin.Context) {
-	users, err := h.userOrchestration.ExportUsers()
-	if err != nil {
-		utils.InternalError(c, err.Error())
-		return
-	}
-
 	f := excelize.NewFile()
 	defer f.Close()
 
@@ -730,14 +740,29 @@ func (h *UserHandler) ExportUsers(c *gin.Context) {
 	f.SetCellValue(sheet, "E1", "状态")
 	f.SetCellValue(sheet, "F1", "角色ID")
 
-	for i, u := range users {
-		row := i + 2
-		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), u.Username)
-		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), u.Nickname)
-		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), u.Email)
-		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), u.Phone)
-		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), u.Status)
-		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), u.RoleID)
+	page := 1
+	pageSize := 500
+	row := 2
+
+	for {
+		users, total, err := h.userOrchestration.ListUsers(page, pageSize, nil)
+		if err != nil {
+			utils.InternalError(c, err.Error())
+			return
+		}
+		for _, u := range users {
+			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), u.Username)
+			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), u.Nickname)
+			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), u.Email)
+			f.SetCellValue(sheet, fmt.Sprintf("D%d", row), u.Phone)
+			f.SetCellValue(sheet, fmt.Sprintf("E%d", row), u.Status)
+			f.SetCellValue(sheet, fmt.Sprintf("F%d", row), u.RoleID)
+			row++
+		}
+		if int64(page*pageSize) >= total {
+			break
+		}
+		page++
 	}
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

@@ -3,6 +3,7 @@ server:
   mode: release
   read_timeout: 10
   write_timeout: 10
+  max_body_size: 8
 
 database:
   driver: mysql
@@ -43,3 +44,16 @@ upload:
     - .jpeg
     - .png
     - .gif
+
+rate_limit:
+  enabled: true
+  default_rate: 100
+  default_burst: 200
+  window: 1s
+  login_rate: 10
+  login_burst: 20
+
+cors:
+  allowed_origins:
+    - http://localhost:5173
+    - http://localhost:3000

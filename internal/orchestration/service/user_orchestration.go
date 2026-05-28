@@ -6,6 +6,7 @@ import (
 	"github.com/gsystes/backend/internal/domain/entity"
 	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	domainService "github.com/gsystes/backend/internal/domain/service"
+	"github.com/gsystes/backend/internal/infrastructure/utils"
 )
 
 type UserOrchestration struct {
@@ -170,21 +171,41 @@ type MenuTreeNode struct {
 }
 
 func buildMenuTree(permissions []entity.Permission, parentID uint) []*MenuTreeNode {
-	var nodes []*MenuTreeNode
+	childrenMap := make(map[uint][]entity.Permission)
+	roots := make([]entity.Permission, 0)
+
 	for _, p := range permissions {
-		if p.ParentID == parentID && p.Type == 1 {
+		if p.Type != 1 {
+			continue
+		}
+		if p.ParentID == parentID {
+			roots = append(roots, p)
+		}
+		childrenMap[p.ParentID] = append(childrenMap[p.ParentID], p)
+	}
+
+	var build func(pid uint) []*MenuTreeNode
+	build = func(pid uint) []*MenuTreeNode {
+		children, ok := childrenMap[pid]
+		if !ok {
+			return nil
+		}
+		nodes := make([]*MenuTreeNode, 0, len(children))
+		for _, p := range children {
 			node := &MenuTreeNode{
 				ID:       p.ID,
 				Name:     p.Name,
 				Code:     p.Code,
 				Path:     p.Path,
 				Sort:     p.Sort,
-				Children: buildMenuTree(permissions, p.ID),
+				Children: build(p.ID),
 			}
 			nodes = append(nodes, node)
 		}
+		return nodes
 	}
-	return nodes
+
+	return build(parentID)
 }
 
 func (s *UserOrchestration) GetCurrentUserPermissions(userID uint) ([]string, error) {
@@ -268,29 +289,28 @@ func (s *UserOrchestration) UpdateStatus(userID uint, status int) error {
 }
 
 func (s *UserOrchestration) ImportUsers(users []*CreateUserRequest) error {
+	entities := make([]*entity.User, 0, len(users))
 	for _, req := range users {
 		if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
 			return errors.New("role not found for username: " + req.Username)
 		}
-		user := &entity.User{
+		existing, _ := s.userRepo.FindByUsername(req.Username)
+		if existing != nil {
+			return errors.New("username already exists: " + req.Username)
+		}
+		hashedPassword, err := utils.HashPassword(req.Password)
+		if err != nil {
+			return err
+		}
+		entities = append(entities, &entity.User{
 			Username: req.Username,
+			Password: hashedPassword,
 			Nickname: req.Nickname,
 			Email:    req.Email,
 			Phone:    req.Phone,
 			RoleID:   req.RoleID,
 			Status:   1,
-		}
-		if err := s.userDomainService.Create(user, req.Password); err != nil {
-			return err
-		}
+		})
 	}
-	return nil
-}
-
-func (s *UserOrchestration) ExportUsers() ([]entity.User, error) {
-	users, _, err := s.userRepo.FindByPage(1, 10000, nil)
-	if err != nil {
-		return nil, err
-	}
-	return users, nil
+	return s.userRepo.BatchCreate(entities)
 }

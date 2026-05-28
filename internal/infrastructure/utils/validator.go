@@ -32,5 +32,5 @@ func formatValidationError(err error) []ValidError {
 			Message: err.Error(),
 		})
 	}
-	return nil
+	return errors
 }
