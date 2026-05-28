@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/handler"
 	mid "github.com/gsystes/backend/internal/communication/middleware"
+	"github.com/gsystes/backend/internal/infrastructure/config"
 )
 
 func SetupRouter(
@@ -18,6 +19,8 @@ func SetupRouter(
 	r.Use(mid.Recovery())
 	r.Use(mid.CORS())
 	r.Use(mid.RequestLogger())
+
+	r.Static("/uploads", config.GetConfig().Upload.Dir)
 
 	api := r.Group("/api/v1")
 	api.Use(operationLogMid.Handle())
@@ -41,6 +44,13 @@ func SetupRouter(
 			users.PUT("/:id/role", userHandler.AssignRole)
 			users.POST("/batch/role", userHandler.BatchAssignRole)
 			users.GET("/by-role/:roleId", userHandler.GetUsersByRole)
+
+			users.GET("/profile", userHandler.GetProfile)
+			users.PUT("/profile", userHandler.UpdateProfile)
+			users.POST("/avatar", userHandler.UpdateAvatar)
+			users.PUT("/:id/status", userHandler.UpdateStatus)
+			users.POST("/import", userHandler.ImportUsers)
+			users.GET("/export", userHandler.ExportUsers)
 		}
 
 		roles := api.Group("/roles")

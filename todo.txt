@@ -60,15 +60,16 @@ Gsystes 后端开发任务清单
   [✓] 获取当前用户权限标识列表（GET /auth/permissions）
 
 阶段九：用户功能完善（中优先级）
-  [ ] 用户个人信息查看与编辑
-  [ ] 头像上传
-  [ ] 账户状态管理（启用 / 禁用）
-  [ ] 批量导入 / 导出用户
+  [✓] 用户个人信息查看与编辑（GET/PUT /users/profile）
+  [✓] 头像上传（POST /users/avatar，支持 jpg/png/gif，5MB 限制）
+  [✓] 账户状态管理（PUT /users/{id}/status 启用/禁用）
+  [✓] 批量导入用户（POST /users/import Excel）
+  [✓] 批量导出用户（GET /users/export Excel）
 
 阶段十：系统功能（中优先级）
   [✓] 操作日志（AOP 切面中间件，自动记录所有 API 操作）
   [✓] 操作日志查询 API（GET /logs）
-  [ ] 接口文档（Swagger / OpenAPI）
+  [✓] 自动化接口文档（Swagger，访问 /swagger/index.html）
   [ ] 请求频率限制（Rate Limiting）
   [ ] 请求参数校验增强
 

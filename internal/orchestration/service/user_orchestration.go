@@ -226,3 +226,71 @@ func (s *UserOrchestration) GetCurrentUserMenus(userID uint) ([]*MenuTreeNode, e
 	}
 	return buildMenuTree(menuPerms, 0), nil
 }
+
+type UpdateProfileRequest struct {
+	Nickname string
+	Email    string
+	Phone    string
+}
+
+func (s *UserOrchestration) UpdateProfile(userID uint, req *UpdateProfileRequest) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	user.Nickname = req.Nickname
+	user.Email = req.Email
+	user.Phone = req.Phone
+	return s.userRepo.Update(user)
+}
+
+func (s *UserOrchestration) UpdateAvatar(userID uint, avatarPath string) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	user.Avatar = avatarPath
+	return s.userRepo.Update(user)
+}
+
+type UpdateStatusRequest struct {
+	UserID uint
+	Status int
+}
+
+func (s *UserOrchestration) UpdateStatus(userID uint, status int) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	user.Status = status
+	return s.userRepo.Update(user)
+}
+
+func (s *UserOrchestration) ImportUsers(users []*CreateUserRequest) error {
+	for _, req := range users {
+		if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
+			return errors.New("role not found for username: " + req.Username)
+		}
+		user := &entity.User{
+			Username: req.Username,
+			Nickname: req.Nickname,
+			Email:    req.Email,
+			Phone:    req.Phone,
+			RoleID:   req.RoleID,
+			Status:   1,
+		}
+		if err := s.userDomainService.Create(user, req.Password); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *UserOrchestration) ExportUsers() ([]entity.User, error) {
+	users, _, err := s.userRepo.FindByPage(1, 10000, nil)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}

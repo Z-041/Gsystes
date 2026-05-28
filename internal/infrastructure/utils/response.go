@@ -19,6 +19,8 @@ type PageResult struct {
 	PageSize int         `json:"page_size"`
 }
 
+type PageResponse = PageResult
+
 func Success(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusOK, Response{
 		Code:    0,

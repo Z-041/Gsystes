@@ -34,3 +34,12 @@ log:
   max_backups: 7
   max_age: 30
   compress: true
+
+upload:
+  dir: ./uploads
+  max_size: 5
+  allowed_exts:
+    - .jpg
+    - .jpeg
+    - .png
+    - .gif

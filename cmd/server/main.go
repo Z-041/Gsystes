@@ -16,8 +16,31 @@ import (
 	"github.com/gsystes/backend/internal/infrastructure/database"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
+
+	_ "github.com/gsystes/backend/docs/swagger"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
+// @title           Gsystes Backend API
+// @version         1.0
+// @description     中后台管理系统后端 API
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Type "Bearer" followed by a space and JWT token.
 func main() {
 	var configPath string
 	flag.StringVar(&configPath, "config", "config/config.yaml", "path to config file")
@@ -69,6 +92,8 @@ func main() {
 	operationLogMid := mid.NewOperationLogMiddleware(operationLogRepo)
 
 	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, operationLogMid)
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	logger.Info("server starting", logger.StringField("addr", addr))

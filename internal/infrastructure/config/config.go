@@ -14,6 +14,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Log      LogConfig      `mapstructure:"log"`
+	Upload   UploadConfig   `mapstructure:"upload"`
 }
 
 type ServerConfig struct {
@@ -65,6 +66,12 @@ type LogConfig struct {
 	MaxBackups int    `mapstructure:"max_backups"`
 	MaxAge     int    `mapstructure:"max_age"`
 	Compress   bool   `mapstructure:"compress"`
+}
+
+type UploadConfig struct {
+	Dir         string   `mapstructure:"dir"`
+	MaxSize     int      `mapstructure:"max_size"`
+	AllowedExts []string `mapstructure:"allowed_exts"`
 }
 
 var globalConfig *Config

@@ -17,6 +17,17 @@ func NewPermissionHandler(permOrchestration *orchestration.PermissionOrchestrati
 	return &PermissionHandler{permOrchestration: permOrchestration}
 }
 
+// Create godoc
+// @Summary      创建权限
+// @Description  创建一个新权限（菜单或按钮）
+// @Tags         权限管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.CreatePermissionRequest  true  "权限信息"
+// @Success      200  {object}  utils.Response{data=object{id=uint}}
+// @Failure      400  {object}  utils.Response
+// @Router       /permissions [post]
 func (h *PermissionHandler) Create(c *gin.Context) {
 	var req dto.CreatePermissionRequest
 	valErrors := utils.BindAndValidate(c, &req)
@@ -42,6 +53,18 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 	utils.Success(c, gin.H{"id": p.ID})
 }
 
+// Update godoc
+// @Summary      更新权限
+// @Description  更新指定权限的信息
+// @Tags         权限管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  uint                          true  "权限 ID"
+// @Param        body  body  dto.UpdatePermissionRequest  true  "更新信息"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /permissions/{id} [put]
 func (h *PermissionHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -74,6 +97,17 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// Delete godoc
+// @Summary      删除权限
+// @Description  删除指定权限
+// @Tags         权限管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      uint  true  "权限 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /permissions/{id} [delete]
 func (h *PermissionHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -90,6 +124,17 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// Get godoc
+// @Summary      获取权限详情
+// @Description  根据 ID 获取权限详细信息
+// @Tags         权限管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      uint  true  "权限 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      404  {object}  utils.Response
+// @Router       /permissions/{id} [get]
 func (h *PermissionHandler) Get(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -118,6 +163,18 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 	})
 }
 
+// List godoc
+// @Summary      权限列表
+// @Description  分页查询权限列表
+// @Tags         权限管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page       query  int  false  "页码（默认 1）"
+// @Param        page_size  query  int  false  "每页条数（默认 10，最大 100）"
+// @Success      200  {object}  utils.PageResponse
+// @Failure      500  {object}  utils.Response
+// @Router       /permissions [get]
 func (h *PermissionHandler) List(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "10")
@@ -155,6 +212,15 @@ func (h *PermissionHandler) List(c *gin.Context) {
 	utils.PageSuccess(c, permList, total, page, pageSize)
 }
 
+// ListAll godoc
+// @Summary      获取所有权限（精简）
+// @Description  返回所有权限列表，不包含分页
+// @Tags         权限管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  utils.Response
+// @Router       /permissions/all [get]
 func (h *PermissionHandler) ListAll(c *gin.Context) {
 	perms, err := h.permOrchestration.ListAllPermissions()
 	if err != nil {

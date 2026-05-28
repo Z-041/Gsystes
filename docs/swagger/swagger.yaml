@@ -1,0 +1,1185 @@
+basePath: /api/v1
+definitions:
+  github_com_gsystes_backend_internal_communication_dto.AssignPermissionsRequest:
+    properties:
+      permission_ids:
+        items:
+          type: integer
+        type: array
+    required:
+    - permission_ids
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.BatchAssignRoleRequest:
+    properties:
+      role_id:
+        type: integer
+      user_ids:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - role_id
+    - user_ids
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.ChangePasswordRequest:
+    properties:
+      new_password:
+        maxLength: 128
+        minLength: 6
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.CreatePermissionRequest:
+    properties:
+      code:
+        maxLength: 64
+        type: string
+      method:
+        maxLength: 32
+        type: string
+      name:
+        maxLength: 64
+        type: string
+      parent_id:
+        type: integer
+      path:
+        maxLength: 256
+        type: string
+      sort:
+        type: integer
+      type:
+        enum:
+        - 1
+        - 2
+        type: integer
+    required:
+    - code
+    - name
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.CreateRoleRequest:
+    properties:
+      code:
+        maxLength: 64
+        type: string
+      description:
+        maxLength: 256
+        type: string
+      name:
+        maxLength: 64
+        type: string
+    required:
+    - code
+    - name
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      nickname:
+        maxLength: 64
+        type: string
+      password:
+        maxLength: 128
+        minLength: 6
+        type: string
+      phone:
+        type: string
+      role_id:
+        type: integer
+      username:
+        maxLength: 64
+        minLength: 3
+        type: string
+    required:
+    - password
+    - role_id
+    - username
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.UpdatePermissionRequest:
+    properties:
+      code:
+        maxLength: 64
+        type: string
+      method:
+        maxLength: 32
+        type: string
+      name:
+        maxLength: 64
+        type: string
+      parent_id:
+        type: integer
+      path:
+        maxLength: 256
+        type: string
+      sort:
+        type: integer
+      type:
+        enum:
+        - 1
+        - 2
+        type: integer
+    required:
+    - code
+    - name
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.UpdateRoleRequest:
+    properties:
+      code:
+        maxLength: 64
+        type: string
+      description:
+        maxLength: 256
+        type: string
+      name:
+        maxLength: 64
+        type: string
+      status:
+        enum:
+        - 1
+        - 2
+        type: integer
+    required:
+    - code
+    - name
+    type: object
+  github_com_gsystes_backend_internal_communication_dto.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      nickname:
+        maxLength: 64
+        type: string
+      phone:
+        type: string
+      role_id:
+        type: integer
+      status:
+        enum:
+        - 1
+        - 2
+        type: integer
+    type: object
+  github_com_gsystes_backend_internal_infrastructure_utils.PageResponse:
+    properties:
+      list: {}
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  github_com_gsystes_backend_internal_infrastructure_utils.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 中后台管理系统后端 API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Gsystes Backend API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 使用用户名和密码登录，返回 JWT Token
+      parameters:
+      - description: 登录信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+            - properties:
+                data:
+                  properties:
+                    token:
+                      type: string
+                    user:
+                      properties:
+                        avatar:
+                          type: string
+                        id:
+                          type: integer
+                        nickname:
+                          type: string
+                        role_id:
+                          type: integer
+                        username:
+                          type: string
+                      type: object
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      summary: 用户登录
+      tags:
+      - 认证
+  /auth/menus:
+    get:
+      consumes:
+      - application/json
+      description: 返回当前用户角色拥有的菜单权限树形结构
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户菜单树
+      tags:
+      - 认证
+  /auth/permissions:
+    get:
+      consumes:
+      - application/json
+      description: 返回当前用户角色拥有的所有权限标识列表（如 ["user:create", "role:delete"]）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户权限标识
+      tags:
+      - 认证
+  /logs:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询操作日志
+      parameters:
+      - description: 页码（默认 1）
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数（默认 10，最大 100）
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.PageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 操作日志列表
+      tags:
+      - 操作日志
+  /permissions:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询权限列表
+      parameters:
+      - description: 页码（默认 1）
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数（默认 10，最大 100）
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.PageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 权限列表
+      tags:
+      - 权限管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新权限（菜单或按钮）
+      parameters:
+      - description: 权限信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.CreatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+            - properties:
+                data:
+                  properties:
+                    id:
+                      type: integer
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建权限
+      tags:
+      - 权限管理
+  /permissions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定权限
+      parameters:
+      - description: 权限 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除权限
+      tags:
+      - 权限管理
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取权限详细信息
+      parameters:
+      - description: 权限 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取权限详情
+      tags:
+      - 权限管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定权限的信息
+      parameters:
+      - description: 权限 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.UpdatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新权限
+      tags:
+      - 权限管理
+  /permissions/all:
+    get:
+      consumes:
+      - application/json
+      description: 返回所有权限列表，不包含分页
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有权限（精简）
+      tags:
+      - 权限管理
+  /roles:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询角色列表
+      parameters:
+      - description: 页码（默认 1）
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数（默认 10，最大 100）
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.PageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 角色列表
+      tags:
+      - 角色管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新角色
+      parameters:
+      - description: 角色信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+            - properties:
+                data:
+                  properties:
+                    id:
+                      type: integer
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建角色
+      tags:
+      - 角色管理
+  /roles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定角色
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除角色
+      tags:
+      - 角色管理
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取角色详细信息和关联权限
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取角色详情
+      tags:
+      - 角色管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定角色的信息
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新角色
+      tags:
+      - 角色管理
+  /roles/{id}/permissions:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定角色已分配的权限列表
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取角色权限
+      tags:
+      - 角色-权限
+    post:
+      consumes:
+      - application/json
+      description: 为指定角色分配权限
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 权限 ID 列表
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.AssignPermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 分配角色权限
+      tags:
+      - 角色-权限
+  /roles/all:
+    get:
+      consumes:
+      - application/json
+      description: 返回所有角色列表，只包含 ID、名称和编码
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有角色（精简）
+      tags:
+      - 角色管理
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询用户列表，支持按用户名、状态、角色筛选
+      parameters:
+      - description: 页码（默认 1）
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数（默认 10，最大 100）
+        in: query
+        name: page_size
+        type: integer
+      - description: 用户名（模糊搜索）
+        in: query
+        name: username
+        type: string
+      - description: 状态（0=禁用，1=启用）
+        in: query
+        name: status
+        type: string
+      - description: 角色 ID
+        in: query
+        name: role_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.PageResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 用户列表
+      tags:
+      - 用户管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新用户
+      parameters:
+      - description: 用户信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+            - properties:
+                data:
+                  properties:
+                    id:
+                      type: integer
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建用户
+      tags:
+      - 用户管理
+  /users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定用户
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除用户
+      tags:
+      - 用户管理
+    get:
+      consumes:
+      - application/json
+      description: 根据 ID 获取用户详细信息
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取用户详情
+      tags:
+      - 用户管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定用户的信息
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新用户
+      tags:
+      - 用户管理
+  /users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: 为指定用户分配角色
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 角色 ID
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            role_id:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 为用户分配角色
+      tags:
+      - 用户-角色
+  /users/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 管理员启用或禁用指定用户账户
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态（1=启用，2=禁用）
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            status:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 启用/禁用用户
+      tags:
+      - 用户管理
+  /users/avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传当前用户的头像图片
+      parameters:
+      - description: 头像文件（支持 jpg/png/gif，最大 5MB）
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+            - properties:
+                data:
+                  properties:
+                    url:
+                      type: string
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 上传头像
+      tags:
+      - 个人中心
+  /users/batch/role:
+    post:
+      consumes:
+      - application/json
+      description: 为一组用户批量分配角色
+      parameters:
+      - description: 批量分配信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.BatchAssignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量分配角色
+      tags:
+      - 用户-角色
+  /users/by-role/{roleId}:
+    get:
+      consumes:
+      - application/json
+      description: 根据角色 ID 查询所有该角色的用户
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: roleId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 按角色查询用户
+      tags:
+      - 用户-角色
+  /users/export:
+    get:
+      consumes:
+      - application/json
+      description: 导出用户列表为 Excel 文件
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      security:
+      - BearerAuth: []
+      summary: 批量导出用户
+      tags:
+      - 用户管理
+  /users/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 通过 Excel 文件批量导入用户
+      parameters:
+      - description: Excel 文件（表头：用户名,密码,昵称,邮箱,手机号,角色ID）
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+            - properties:
+                data:
+                  properties:
+                    count:
+                      type: integer
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量导入用户
+      tags:
+      - 用户管理
+  /users/password:
+    put:
+      consumes:
+      - application/json
+      description: 当前用户修改自己的密码
+      parameters:
+      - description: 密码信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_gsystes_backend_internal_communication_dto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 修改密码
+      tags:
+      - 用户管理
+  /users/profile:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前登录用户的个人信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取个人信息
+      tags:
+      - 个人中心
+    put:
+      consumes:
+      - application/json
+      description: 当前用户编辑自己的昵称、邮箱、手机号
+      parameters:
+      - description: 个人信息
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            nickname:
+              type: string
+            phone:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_gsystes_backend_internal_infrastructure_utils.Response'
+      security:
+      - BearerAuth: []
+      summary: 编辑个人信息
+      tags:
+      - 个人中心
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

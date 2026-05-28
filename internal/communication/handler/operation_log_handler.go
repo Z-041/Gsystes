@@ -16,6 +16,18 @@ func NewOperationLogHandler(logOrchestration *orchestration.OperationLogOrchestr
 	return &OperationLogHandler{logOrchestration: logOrchestration}
 }
 
+// List godoc
+// @Summary      操作日志列表
+// @Description  分页查询操作日志
+// @Tags         操作日志
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page       query  int  false  "页码（默认 1）"
+// @Param        page_size  query  int  false  "每页条数（默认 10，最大 100）"
+// @Success      200  {object}  utils.PageResponse
+// @Failure      500  {object}  utils.Response
+// @Router       /logs [get]
 func (h *OperationLogHandler) List(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "10")

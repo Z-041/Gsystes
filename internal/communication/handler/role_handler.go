@@ -17,6 +17,17 @@ func NewRoleHandler(roleOrchestration *orchestration.RoleOrchestration) *RoleHan
 	return &RoleHandler{roleOrchestration: roleOrchestration}
 }
 
+// Create godoc
+// @Summary      创建角色
+// @Description  创建一个新角色
+// @Tags         角色管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.CreateRoleRequest  true  "角色信息"
+// @Success      200  {object}  utils.Response{data=object{id=uint}}
+// @Failure      400  {object}  utils.Response
+// @Router       /roles [post]
 func (h *RoleHandler) Create(c *gin.Context) {
 	var req dto.CreateRoleRequest
 	valErrors := utils.BindAndValidate(c, &req)
@@ -38,6 +49,18 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	utils.Success(c, gin.H{"id": role.ID})
 }
 
+// Update godoc
+// @Summary      更新角色
+// @Description  更新指定角色的信息
+// @Tags         角色管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  uint                   true  "角色 ID"
+// @Param        body  body  dto.UpdateRoleRequest  true  "更新信息"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /roles/{id} [put]
 func (h *RoleHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -67,6 +90,17 @@ func (h *RoleHandler) Update(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// Delete godoc
+// @Summary      删除角色
+// @Description  删除指定角色
+// @Tags         角色管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      uint  true  "角色 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /roles/{id} [delete]
 func (h *RoleHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -83,6 +117,17 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// Get godoc
+// @Summary      获取角色详情
+// @Description  根据 ID 获取角色详细信息和关联权限
+// @Tags         角色管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      uint  true  "角色 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      404  {object}  utils.Response
+// @Router       /roles/{id} [get]
 func (h *RoleHandler) Get(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -109,6 +154,18 @@ func (h *RoleHandler) Get(c *gin.Context) {
 	})
 }
 
+// List godoc
+// @Summary      角色列表
+// @Description  分页查询角色列表
+// @Tags         角色管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page       query  int  false  "页码（默认 1）"
+// @Param        page_size  query  int  false  "每页条数（默认 10，最大 100）"
+// @Success      200  {object}  utils.PageResponse
+// @Failure      500  {object}  utils.Response
+// @Router       /roles [get]
 func (h *RoleHandler) List(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "10")
@@ -143,6 +200,15 @@ func (h *RoleHandler) List(c *gin.Context) {
 	utils.PageSuccess(c, roleList, total, page, pageSize)
 }
 
+// ListAll godoc
+// @Summary      获取所有角色（精简）
+// @Description  返回所有角色列表，只包含 ID、名称和编码
+// @Tags         角色管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  utils.Response
+// @Router       /roles/all [get]
 func (h *RoleHandler) ListAll(c *gin.Context) {
 	roles, err := h.roleOrchestration.ListAllRoles()
 	if err != nil {
@@ -162,6 +228,18 @@ func (h *RoleHandler) ListAll(c *gin.Context) {
 	utils.Success(c, roleList)
 }
 
+// AssignPermissions godoc
+// @Summary      分配角色权限
+// @Description  为指定角色分配权限
+// @Tags         角色-权限
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  uint                          true  "角色 ID"
+// @Param        body  body  dto.AssignPermissionsRequest  true  "权限 ID 列表"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /roles/{id}/permissions [post]
 func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -188,6 +266,17 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// GetPermissions godoc
+// @Summary      获取角色权限
+// @Description  获取指定角色已分配的权限列表
+// @Tags         角色-权限
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      uint  true  "角色 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /roles/{id}/permissions [get]
 func (h *RoleHandler) GetPermissions(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
