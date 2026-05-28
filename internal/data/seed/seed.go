@@ -57,15 +57,34 @@ func InitSeedData(
 		{Name: "查询角色", Code: "role:read", Type: 2, Path: "/roles", Method: "GET", Sort: 10},
 		{Name: "权限管理", Code: "perm:manage", Type: 1, Path: "/permissions", Sort: 11},
 		{Name: "分配权限", Code: "perm:assign", Type: 2, Path: "/permissions", Method: "POST", Sort: 12},
+		{Name: "操作日志", Code: "log:manage", Type: 1, Path: "/logs", Sort: 13},
+		{Name: "查询日志", Code: "log:read", Type: 2, Path: "/logs", Method: "GET", Sort: 14},
 	}
-	for _, p := range permissions {
-		if err := permRepo.Create(p); err != nil {
-			return fmt.Errorf("failed to create permission %s: %w", p.Code, err)
-		}
+	if err := permRepo.BatchCreate(permissions); err != nil {
+		return fmt.Errorf("failed to create default permissions: %w", err)
+	}
+
+	codes := make([]string, len(permissions))
+	for i, p := range permissions {
+		codes[i] = p.Code
+	}
+	var permModels []model.Permission
+	if err := db.Where("code IN ?", codes).Order("sort ASC").Find(&permModels).Error; err != nil {
+		return fmt.Errorf("failed to query created permissions: %w", err)
+	}
+	permIDs := make([]uint, len(permModels))
+	for i, m := range permModels {
+		permIDs[i] = m.ID
 	}
 	logger.Info("default permissions created", logger.IntField("count", len(permissions)))
 
-	// 3. Create admin user
+	// 3. Assign all permissions to admin role
+	if err := roleRepo.AssignPermissions(roleModel.ID, permIDs); err != nil {
+		return fmt.Errorf("failed to assign permissions to admin role: %w", err)
+	}
+	logger.Info("permissions assigned to admin role", logger.IntField("count", len(permIDs)))
+
+	// 4. Create admin user
 	adminUser := &entity.User{
 		Username: "admin",
 		Nickname: "超级管理员",

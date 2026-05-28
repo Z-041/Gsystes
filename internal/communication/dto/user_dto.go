@@ -26,3 +26,8 @@ type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=6,max=128"`
 }
+
+type BatchAssignRoleRequest struct {
+	UserIDs []uint `json:"user_ids" binding:"required,min=1"`
+	RoleID  uint   `json:"role_id" binding:"required"`
+}

@@ -19,7 +19,7 @@ func (r *userRepository) toDomain(m *model.User) *domainEntity.User {
 	if m == nil {
 		return nil
 	}
-	return &domainEntity.User{
+	user := &domainEntity.User{
 		ID:        m.ID,
 		Username:  m.Username,
 		Password:  m.Password,
@@ -32,6 +32,18 @@ func (r *userRepository) toDomain(m *model.User) *domainEntity.User {
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
 	}
+	if m.Role.ID != 0 {
+		user.Role = &domainEntity.Role{
+			ID:          m.Role.ID,
+			Name:        m.Role.Name,
+			Code:        m.Role.Code,
+			Description: m.Role.Description,
+			Status:      m.Role.Status,
+			CreatedAt:   m.Role.CreatedAt,
+			UpdatedAt:   m.Role.UpdatedAt,
+		}
+	}
+	return user
 }
 
 func (r *userRepository) toModel(d *domainEntity.User) *model.User {
@@ -56,8 +68,14 @@ func (r *userRepository) Create(user *domainEntity.User) error {
 }
 
 func (r *userRepository) Update(user *domainEntity.User) error {
-	m := r.toModel(user)
-	return r.db.Model(&model.User{}).Where("id = ?", m.ID).Select("*").Omit("created_at").Updates(m).Error
+	return r.db.Model(&model.User{}).Where("id = ?", user.ID).Updates(map[string]interface{}{
+		"nickname": user.Nickname,
+		"email":    user.Email,
+		"phone":    user.Phone,
+		"avatar":   user.Avatar,
+		"status":   user.Status,
+		"role_id":  user.RoleID,
+	}).Error
 }
 
 func (r *userRepository) Delete(id uint) error {
@@ -66,7 +84,7 @@ func (r *userRepository) Delete(id uint) error {
 
 func (r *userRepository) FindByID(id uint) (*domainEntity.User, error) {
 	var m model.User
-	if err := r.db.First(&m, id).Error; err != nil {
+	if err := r.db.Preload("Role").First(&m, id).Error; err != nil {
 		return nil, err
 	}
 	return r.toDomain(&m), nil
@@ -74,7 +92,7 @@ func (r *userRepository) FindByID(id uint) (*domainEntity.User, error) {
 
 func (r *userRepository) FindByUsername(username string) (*domainEntity.User, error) {
 	var m model.User
-	if err := r.db.Where("username = ?", username).First(&m).Error; err != nil {
+	if err := r.db.Where("username = ?", username).Preload("Role").First(&m).Error; err != nil {
 		return nil, err
 	}
 	return r.toDomain(&m), nil
@@ -94,7 +112,7 @@ func (r *userRepository) FindByPage(page, pageSize int, conditions map[string]in
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Order("id DESC").Find(&models).Error; err != nil {
+	if err := query.Preload("Role").Offset(offset).Limit(pageSize).Order("id DESC").Find(&models).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -103,4 +121,33 @@ func (r *userRepository) FindByPage(page, pageSize int, conditions map[string]in
 		entities[i] = *r.toDomain(&m)
 	}
 	return entities, total, nil
+}
+
+func (r *userRepository) FindByRoleID(roleID uint) ([]domainEntity.User, error) {
+	var models []model.User
+	if err := r.db.Where("role_id = ?", roleID).Preload("Role").Find(&models).Error; err != nil {
+		return nil, err
+	}
+	entities := make([]domainEntity.User, len(models))
+	for i, m := range models {
+		entities[i] = *r.toDomain(&m)
+	}
+	return entities, nil
+}
+
+func (r *userRepository) BatchUpdateRole(userIDs []uint, roleID uint) error {
+	return r.db.Model(&model.User{}).Where("id IN ?", userIDs).Update("role_id", roleID).Error
+}
+
+func (r *userRepository) BatchCreate(users []*domainEntity.User) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for _, u := range users {
+			m := r.toModel(u)
+			if err := tx.Create(m).Error; err != nil {
+				return err
+			}
+			u.ID = m.ID
+		}
+		return nil
+	})
 }

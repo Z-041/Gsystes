@@ -12,6 +12,7 @@ type User struct {
 	Avatar    string    `gorm:"column:avatar;type:varchar(256)"`
 	Status    int       `gorm:"column:status;type:tinyint;default:1"`
 	RoleID    uint      `gorm:"column:role_id"`
+	Role      Role      `gorm:"foreignKey:RoleID"`
 	CreatedAt time.Time `gorm:"column:created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at"`
 }

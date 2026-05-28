@@ -1,15 +1,31 @@
 package handler
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
+	"github.com/gsystes/backend/internal/domain/entity"
 	"github.com/gsystes/backend/internal/infrastructure/auth"
+	"github.com/gsystes/backend/internal/infrastructure/config"
+	"github.com/gsystes/backend/internal/infrastructure/logger"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
-	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
+	orchestration "github.com/gsystes/backend/internal/orchestration/service"
+	"github.com/xuri/excelize/v2"
 )
+
+var allowedMimeTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/gif":  true,
+}
 
 type UserHandler struct {
 	userOrchestration *orchestration.UserOrchestration
@@ -19,6 +35,17 @@ func NewUserHandler(userOrchestration *orchestration.UserOrchestration) *UserHan
 	return &UserHandler{userOrchestration: userOrchestration}
 }
 
+// Login godoc
+// @Summary      用户登录
+// @Description  使用用户名和密码登录，返回 JWT Token
+// @Tags         认证
+// @Accept       json
+// @Produce      json
+// @Param        body  body  dto.LoginRequest  true  "登录信息"
+// @Success      200  {object}  utils.Response{data=object{token=string,user=object{id=uint,username=string,nickname=string,avatar=string,role_id=uint}}}
+// @Failure      400  {object}  utils.Response
+// @Failure      401  {object}  utils.Response
+// @Router       /auth/login [post]
 func (h *UserHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	valErrors := utils.BindAndValidate(c, &req)
@@ -48,6 +75,17 @@ func (h *UserHandler) Login(c *gin.Context) {
 	})
 }
 
+// Create godoc
+// @Summary      创建用户
+// @Description  创建一个新用户
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.CreateUserRequest  true  "用户信息"
+// @Success      200  {object}  utils.Response{data=object{id=uint}}
+// @Failure      400  {object}  utils.Response
+// @Router       /users [post]
 func (h *UserHandler) Create(c *gin.Context) {
 	var req dto.CreateUserRequest
 	valErrors := utils.BindAndValidate(c, &req)
@@ -74,6 +112,18 @@ func (h *UserHandler) Create(c *gin.Context) {
 	})
 }
 
+// Update godoc
+// @Summary      更新用户
+// @Description  更新指定用户的信息
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  uint                   true  "用户 ID"
+// @Param        body  body  dto.UpdateUserRequest  true  "更新信息"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/{id} [put]
 func (h *UserHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -104,6 +154,17 @@ func (h *UserHandler) Update(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// Delete godoc
+// @Summary      删除用户
+// @Description  删除指定用户
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      uint  true  "用户 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -120,6 +181,17 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	utils.Success(c, nil)
 }
 
+// Get godoc
+// @Summary      获取用户详情
+// @Description  根据 ID 获取用户详细信息
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      uint  true  "用户 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      404  {object}  utils.Response
+// @Router       /users/{id} [get]
 func (h *UserHandler) Get(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -134,6 +206,15 @@ func (h *UserHandler) Get(c *gin.Context) {
 		return
 	}
 
+	roleInfo := gin.H{}
+	if user.Role != nil {
+		roleInfo = gin.H{
+			"id":   user.Role.ID,
+			"name": user.Role.Name,
+			"code": user.Role.Code,
+		}
+	}
+
 	utils.Success(c, gin.H{
 		"id":         user.ID,
 		"username":   user.Username,
@@ -143,11 +224,27 @@ func (h *UserHandler) Get(c *gin.Context) {
 		"avatar":     user.Avatar,
 		"status":     user.Status,
 		"role_id":    user.RoleID,
+		"role":       roleInfo,
 		"created_at": user.CreatedAt,
 		"updated_at": user.UpdatedAt,
 	})
 }
 
+// List godoc
+// @Summary      用户列表
+// @Description  分页查询用户列表，支持按用户名、状态、角色筛选
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page       query  int     false  "页码（默认 1）"
+// @Param        page_size  query  int     false  "每页条数（默认 10，最大 100）"
+// @Param        username   query  string  false  "用户名（模糊搜索）"
+// @Param        status     query  string  false  "状态（0=禁用，1=启用）"
+// @Param        role_id    query  string  false  "角色 ID"
+// @Success      200  {object}  utils.PageResponse
+// @Failure      500  {object}  utils.Response
+// @Router       /users [get]
 func (h *UserHandler) List(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "10")
@@ -168,6 +265,9 @@ func (h *UserHandler) List(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		conditions["status = ?"] = status
 	}
+	if roleID := c.Query("role_id"); roleID != "" {
+		conditions["role_id = ?"] = roleID
+	}
 
 	users, total, err := h.userOrchestration.ListUsers(page, pageSize, conditions)
 	if err != nil {
@@ -177,6 +277,14 @@ func (h *UserHandler) List(c *gin.Context) {
 
 	userList := make([]gin.H, len(users))
 	for i, u := range users {
+		roleInfo := gin.H{}
+		if u.Role != nil {
+			roleInfo = gin.H{
+				"id":   u.Role.ID,
+				"name": u.Role.Name,
+				"code": u.Role.Code,
+			}
+		}
 		userList[i] = gin.H{
 			"id":         u.ID,
 			"username":   u.Username,
@@ -186,6 +294,7 @@ func (h *UserHandler) List(c *gin.Context) {
 			"avatar":     u.Avatar,
 			"status":     u.Status,
 			"role_id":    u.RoleID,
+			"role":       roleInfo,
 			"created_at": u.CreatedAt,
 		}
 	}
@@ -193,6 +302,17 @@ func (h *UserHandler) List(c *gin.Context) {
 	utils.PageSuccess(c, userList, total, page, pageSize)
 }
 
+// ChangePassword godoc
+// @Summary      修改密码
+// @Description  当前用户修改自己的密码
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.ChangePasswordRequest  true  "密码信息"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/password [put]
 func (h *UserHandler) ChangePassword(c *gin.Context) {
 	var req dto.ChangePasswordRequest
 	valErrors := utils.BindAndValidate(c, &req)
@@ -208,4 +328,472 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+}
+
+// AssignRole godoc
+// @Summary      为用户分配角色
+// @Description  为指定用户分配角色
+// @Tags         用户-角色
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  uint            true  "用户 ID"
+// @Param        body  body  object{role_id=uint}  true  "角色 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/{id}/role [put]
+func (h *UserHandler) AssignRole(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "invalid user id")
+		return
+	}
+
+	var req struct {
+		RoleID uint `json:"role_id" binding:"required"`
+	}
+	valErrors := utils.BindAndValidate(c, &req)
+	if valErrors != nil {
+		utils.BadRequest(c, "invalid request parameters")
+		return
+	}
+
+	if err := h.userOrchestration.AssignRole(uint(id), req.RoleID); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	utils.Success(c, nil)
+}
+
+// BatchAssignRole godoc
+// @Summary      批量分配角色
+// @Description  为一组用户批量分配角色
+// @Tags         用户-角色
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  dto.BatchAssignRoleRequest  true  "批量分配信息"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/batch/role [post]
+func (h *UserHandler) BatchAssignRole(c *gin.Context) {
+	var req dto.BatchAssignRoleRequest
+	valErrors := utils.BindAndValidate(c, &req)
+	if valErrors != nil {
+		utils.BadRequest(c, "invalid request parameters")
+		return
+	}
+
+	if err := h.userOrchestration.BatchAssignRole(&orchestration.BatchAssignRoleRequest{
+		UserIDs: req.UserIDs,
+		RoleID:  req.RoleID,
+	}); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	utils.Success(c, nil)
+}
+
+// GetUsersByRole godoc
+// @Summary      按角色查询用户
+// @Description  根据角色 ID 查询所有该角色的用户
+// @Tags         用户-角色
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        roleId  path  uint  true  "角色 ID"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/by-role/{roleId} [get]
+func (h *UserHandler) GetUsersByRole(c *gin.Context) {
+	roleIDStr := c.Param("roleId")
+	roleID, err := strconv.ParseUint(roleIDStr, 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "invalid role id")
+		return
+	}
+
+	users, err := h.userOrchestration.GetUsersByRole(uint(roleID))
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	userList := make([]gin.H, len(users))
+	for i, u := range users {
+		userList[i] = gin.H{
+			"id":       u.ID,
+			"username": u.Username,
+			"nickname": u.Nickname,
+			"email":    u.Email,
+			"status":   u.Status,
+		}
+	}
+
+	utils.Success(c, userList)
+}
+
+// GetCurrentMenus godoc
+// @Summary      获取当前用户菜单树
+// @Description  返回当前用户角色拥有的菜单权限树形结构
+// @Tags         认证
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  utils.Response
+// @Router       /auth/menus [get]
+func (h *UserHandler) GetCurrentMenus(c *gin.Context) {
+	userID := infraMiddleware.GetUserID(c)
+	menus, err := h.userOrchestration.GetCurrentUserMenus(userID)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.Success(c, menus)
+}
+
+// GetCurrentPermissions godoc
+// @Summary      获取当前用户权限标识
+// @Description  返回当前用户角色拥有的所有权限标识列表（如 ["user:create", "role:delete"]）
+// @Tags         认证
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  utils.Response{data=[]string}
+// @Router       /auth/permissions [get]
+func (h *UserHandler) GetCurrentPermissions(c *gin.Context) {
+	userID := infraMiddleware.GetUserID(c)
+	codes, err := h.userOrchestration.GetCurrentUserPermissions(userID)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	utils.Success(c, codes)
+}
+
+// GetProfile godoc
+// @Summary      获取个人信息
+// @Description  获取当前登录用户的个人信息
+// @Tags         个人中心
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  utils.Response
+// @Router       /users/profile [get]
+func (h *UserHandler) GetProfile(c *gin.Context) {
+	userID := infraMiddleware.GetUserID(c)
+	user, err := h.userOrchestration.GetUser(userID)
+	if err != nil {
+		utils.NotFound(c, "user not found")
+		return
+	}
+	utils.Success(c, gin.H{
+		"id":         user.ID,
+		"username":   user.Username,
+		"nickname":   user.Nickname,
+		"email":      user.Email,
+		"phone":      user.Phone,
+		"avatar":     user.Avatar,
+		"status":     user.Status,
+		"role_id":    user.RoleID,
+		"created_at": user.CreatedAt,
+		"updated_at": user.UpdatedAt,
+	})
+}
+
+// UpdateProfile godoc
+// @Summary      编辑个人信息
+// @Description  当前用户编辑自己的昵称、邮箱、手机号
+// @Tags         个人中心
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body  object{nickname=string,email=string,phone=string}  true  "个人信息"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/profile [put]
+func (h *UserHandler) UpdateProfile(c *gin.Context) {
+	var req struct {
+		Nickname string `json:"nickname"`
+		Email    string `json:"email"`
+		Phone    string `json:"phone"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "invalid request parameters")
+		return
+	}
+
+	userID := infraMiddleware.GetUserID(c)
+	if err := h.userOrchestration.UpdateProfile(userID, &orchestration.UpdateProfileRequest{
+		Nickname: req.Nickname,
+		Email:    req.Email,
+		Phone:    req.Phone,
+	}); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	utils.Success(c, nil)
+}
+
+// UpdateAvatar godoc
+// @Summary      上传头像
+// @Description  上传当前用户的头像图片
+// @Tags         个人中心
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        avatar  formData  file  true  "头像文件（支持 jpg/png/gif，最大 5MB）"
+// @Success      200  {object}  utils.Response{data=object{url=string}}
+// @Failure      400  {object}  utils.Response
+// @Router       /users/avatar [post]
+func (h *UserHandler) UpdateAvatar(c *gin.Context) {
+	file, header, err := c.Request.FormFile("avatar")
+	if err != nil {
+		utils.BadRequest(c, "avatar file is required")
+		return
+	}
+	defer file.Close()
+
+	uploadCfg := config.GetConfig().Upload
+	ext := filepath.Ext(header.Filename)
+	allowed := false
+	for _, e := range uploadCfg.AllowedExts {
+		if e == ext {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		utils.BadRequest(c, "file type not allowed, only jpg/png/gif")
+		return
+	}
+
+	data := make([]byte, 512)
+	n, _ := file.Read(data)
+	mimeType := http.DetectContentType(data[:n])
+	if !allowedMimeTypes[mimeType] {
+		utils.BadRequest(c, "invalid file content, only jpg/png/gif images are allowed")
+		return
+	}
+	file.Seek(0, 0)
+
+	if header.Size > int64(uploadCfg.MaxSize)*1024*1024 {
+		utils.BadRequest(c, fmt.Sprintf("file too large, max %dMB", uploadCfg.MaxSize))
+		return
+	}
+
+	avatarDir := filepath.Join(uploadCfg.Dir, "avatars")
+	if err := os.MkdirAll(avatarDir, 0755); err != nil {
+		utils.InternalError(c, "failed to create upload dir")
+		return
+	}
+
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), filepath.Base(header.Filename))
+	savePath := filepath.Join(avatarDir, filename)
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		utils.InternalError(c, "failed to save file")
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		utils.InternalError(c, "failed to save file")
+		return
+	}
+
+	avatarURL := "/uploads/avatars/" + filename
+	userID := infraMiddleware.GetUserID(c)
+
+	utils.Success(c, gin.H{"url": avatarURL})
+
+	go func() {
+		if err := h.userOrchestration.UpdateAvatar(userID, avatarURL); err != nil {
+			logger.Error("failed to update avatar in background",
+				logger.UintField("user_id", userID),
+				logger.ErrorField(err),
+			)
+		}
+	}()
+}
+
+// UpdateStatus godoc
+// @Summary      启用/禁用用户
+// @Description  管理员启用或禁用指定用户账户
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  uint                    true  "用户 ID"
+// @Param        body  body  object{status=int}  true  "状态（1=启用，2=禁用）"
+// @Success      200  {object}  utils.Response
+// @Failure      400  {object}  utils.Response
+// @Router       /users/{id}/status [put]
+func (h *UserHandler) UpdateStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		utils.BadRequest(c, "invalid user id")
+		return
+	}
+
+	var req struct {
+		Status int `json:"status" binding:"required,oneof=1 2"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "invalid status, must be 1(active) or 2(inactive)")
+		return
+	}
+
+	if err := h.userOrchestration.UpdateStatus(uint(id), req.Status); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	utils.Success(c, nil)
+}
+
+// ImportUsers godoc
+// @Summary      批量导入用户
+// @Description  通过 Excel 文件批量导入用户
+// @Tags         用户管理
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        file  formData  file  true  "Excel 文件（表头：用户名,密码,昵称,邮箱,手机号,角色ID）"
+// @Success      200  {object}  utils.Response{data=object{count=int}}
+// @Failure      400  {object}  utils.Response
+// @Router       /users/import [post]
+func (h *UserHandler) ImportUsers(c *gin.Context) {
+	fh, err := c.FormFile("file")
+	if err != nil {
+		utils.BadRequest(c, "file is required")
+		return
+	}
+
+	file, err := fh.Open()
+	if err != nil {
+		utils.BadRequest(c, "failed to open file")
+		return
+	}
+	defer file.Close()
+
+	f, err := excelize.OpenReader(file)
+	if err != nil {
+		utils.BadRequest(c, "invalid excel file")
+		return
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows(f.GetSheetName(0))
+	if err != nil || len(rows) < 2 {
+		utils.BadRequest(c, "empty file or missing header")
+		return
+	}
+
+	var users []*orchestration.CreateUserRequest
+	for i := 1; i < len(rows); i++ {
+		cols := rows[i]
+		if len(cols) < 2 {
+			continue
+		}
+		roleID, _ := strconv.ParseUint(cols[5], 10, 64)
+		users = append(users, &orchestration.CreateUserRequest{
+			Username: cols[0],
+			Password: cols[1],
+			Nickname: cols[2],
+			Email:    cols[3],
+			Phone:    cols[4],
+			RoleID:   uint(roleID),
+		})
+	}
+
+	if len(users) == 0 {
+		utils.BadRequest(c, "no valid user data found")
+		return
+	}
+
+	if err := h.userOrchestration.ImportUsers(users); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{"count": len(users)})
+}
+
+// ExportUsers godoc
+// @Summary      批量导出用户
+// @Description  导出用户列表为 Excel 文件（分页流式写入）
+// @Tags         用户管理
+// @Accept       json
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Security     BearerAuth
+// @Success      200  {file}  binary
+// @Router       /users/export [get]
+func (h *UserHandler) ExportUsers(c *gin.Context) {
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheet := f.GetSheetName(0)
+	headers := []string{"用户名", "昵称", "邮箱", "手机号", "状态", "角色ID"}
+	for i, header := range headers {
+		col := string(rune('A' + i))
+		f.SetCellValue(sheet, fmt.Sprintf("%s1", col), header)
+	}
+
+	type pageResult struct {
+		users []entity.User
+		page  int
+	}
+	fetchCh := make(chan pageResult, 4)
+	errCh := make(chan error, 1)
+
+	go func() {
+		page := 1
+		pageSize := 500
+		defer close(fetchCh)
+		for {
+			users, total, err := h.userOrchestration.ListUsers(page, pageSize, nil)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			fetchCh <- pageResult{users: users, page: page}
+			if int64(page*pageSize) >= total {
+				return
+			}
+			page++
+		}
+	}()
+
+	row := 2
+	for res := range fetchCh {
+		for _, u := range res.users {
+			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), u.Username)
+			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), u.Nickname)
+			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), u.Email)
+			f.SetCellValue(sheet, fmt.Sprintf("D%d", row), u.Phone)
+			f.SetCellValue(sheet, fmt.Sprintf("E%d", row), u.Status)
+			f.SetCellValue(sheet, fmt.Sprintf("F%d", row), u.RoleID)
+			row++
+		}
+	}
+
+	select {
+	case err := <-errCh:
+		utils.InternalError(c, err.Error())
+		return
+	default:
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=users.xlsx")
+	if err := f.Write(c.Writer); err != nil {
+		utils.InternalError(c, "failed to export")
+	}
 }

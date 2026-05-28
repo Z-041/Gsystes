@@ -53,6 +53,18 @@ func (m *mockUserRepo) FindByPage(page, pageSize int, conditions map[string]inte
 	return nil, 0, nil
 }
 
+func (m *mockUserRepo) FindByRoleID(roleID uint) ([]entity.User, error) {
+	return nil, nil
+}
+
+func (m *mockUserRepo) BatchUpdateRole(userIDs []uint, roleID uint) error {
+	return nil
+}
+
+func (m *mockUserRepo) BatchCreate(users []*entity.User) error {
+	return nil
+}
+
 func TestCreateUser_Success(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserDomainService(repo)
