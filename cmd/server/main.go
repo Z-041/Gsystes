@@ -104,11 +104,12 @@ func main() {
 	roleHandler := handler.NewRoleHandler(roleOrchestration)
 	permHandler := handler.NewPermissionHandler(permOrchestration)
 	logHandler := handler.NewOperationLogHandler(logOrchestration)
+	dashboardHandler := handler.NewDashboardHandler(userRepo, roleRepo, operationLogRepo)
 
 	operationLogMid := mid.NewOperationLogMiddleware(logWriter)
 	permMid := mid.NewPermissionMiddleware(roleRepo)
 
-	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, operationLogMid, permMid)
+	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, dashboardHandler, operationLogMid, permMid)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

@@ -151,3 +151,9 @@ func (r *userRepository) BatchCreate(users []*domainEntity.User) error {
 		return nil
 	})
 }
+
+func (r *userRepository) Count() (int64, error) {
+	var count int64
+	err := r.db.Model(&model.User{}).Count(&count).Error
+	return count, err
+}

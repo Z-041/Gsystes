@@ -12,6 +12,7 @@ func SetupRouter(
 	roleHandler *handler.RoleHandler,
 	permHandler *handler.PermissionHandler,
 	operationLogHandler *handler.OperationLogHandler,
+	dashboardHandler *handler.DashboardHandler,
 	operationLogMid *mid.OperationLogMiddleware,
 	permMid *mid.PermissionMiddleware,
 ) *gin.Engine {
@@ -92,6 +93,12 @@ func SetupRouter(
 		logs.Use(mid.AuthRequired())
 		{
 			logs.GET("", permMid.Require("log:read"), operationLogHandler.List)
+		}
+
+		dashboard := api.Group("/dashboard")
+		dashboard.Use(mid.AuthRequired())
+		{
+			dashboard.GET("/stats", dashboardHandler.Stats)
 		}
 	}
 

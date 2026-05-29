@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gsystes/backend/internal/domain/entity"
+	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
 )
 
@@ -33,8 +34,12 @@ func (m *mockOpLogRepo) Create(log *entity.OperationLog) error {
 	return nil
 }
 
-func (m *mockOpLogRepo) FindByPage(page, pageSize int) ([]entity.OperationLog, int64, error) {
+func (m *mockOpLogRepo) FindByPage(page, pageSize int, filter *domainRepo.LogFilter) ([]entity.OperationLog, int64, error) {
 	return nil, 0, nil
+}
+
+func (m *mockOpLogRepo) CountToday() (int64, error) {
+	return 0, nil
 }
 
 func TestNewOperationLogWriter_Defaults(t *testing.T) {

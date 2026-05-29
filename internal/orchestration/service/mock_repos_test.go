@@ -108,6 +108,12 @@ func (m *mockUserRepo) BatchCreate(users []*entity.User) error {
 	return nil
 }
 
+func (m *mockUserRepo) Count() (int64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return int64(len(m.users)), nil
+}
+
 type mockRoleRepo struct {
 	mu       sync.RWMutex
 	roles    map[uint]*entity.Role
@@ -209,6 +215,12 @@ func (m *mockRoleRepo) GetPermissions(roleID uint) ([]entity.Permission, error) 
 		return []entity.Permission{}, nil
 	}
 	return perms, nil
+}
+
+func (m *mockRoleRepo) Count() (int64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return int64(len(m.roles)), nil
 }
 
 type mockPermRepo struct {

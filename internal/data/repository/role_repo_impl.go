@@ -101,6 +101,12 @@ func (r *roleRepository) FindAll() ([]domainEntity.Role, error) {
 	return entities, nil
 }
 
+func (r *roleRepository) Count() (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Role{}).Count(&count).Error
+	return count, err
+}
+
 func (r *roleRepository) FindByPage(page, pageSize int) ([]domainEntity.Role, int64, error) {
 	var models []model.Role
 	var total int64

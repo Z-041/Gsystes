@@ -12,4 +12,5 @@ type UserRepository interface {
 	FindByRoleID(roleID uint) ([]entity.User, error)
 	BatchUpdateRole(userIDs []uint, roleID uint) error
 	BatchCreate(users []*entity.User) error
+	Count() (int64, error)
 }

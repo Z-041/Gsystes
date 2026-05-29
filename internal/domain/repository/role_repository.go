@@ -12,4 +12,5 @@ type RoleRepository interface {
 	FindByPage(page, pageSize int) ([]entity.Role, int64, error)
 	AssignPermissions(roleID uint, permissionIDs []uint) error
 	GetPermissions(roleID uint) ([]entity.Permission, error)
+	Count() (int64, error)
 }

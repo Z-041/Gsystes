@@ -65,6 +65,10 @@ func (m *mockUserRepo) BatchCreate(users []*entity.User) error {
 	return nil
 }
 
+func (m *mockUserRepo) Count() (int64, error) {
+	return int64(len(m.users)), nil
+}
+
 func TestCreateUser_Success(t *testing.T) {
 	repo := newMockUserRepo()
 	svc := NewUserDomainService(repo)

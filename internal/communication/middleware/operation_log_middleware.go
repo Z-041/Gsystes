@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -39,12 +40,28 @@ func sanitizeBody(body string) string {
 	return string(result)
 }
 
+var skipPaths = []string{"/uploads/", "/swagger/", "/health", "/favicon.ico"}
+
+func shouldSkip(path string) bool {
+	for _, p := range skipPaths {
+		if strings.Contains(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *OperationLogMiddleware) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
 		method := c.Request.Method
 		query := c.Request.URL.RawQuery
+
+		if shouldSkip(path) {
+			c.Next()
+			return
+		}
 
 		var body string
 		if c.Request.Body != nil {
@@ -74,8 +91,6 @@ func (m *OperationLogMiddleware) Handle() gin.HandlerFunc {
 			entry.Username = claims.Username
 		}
 
-		if statusCode >= 400 || method != "GET" {
-			m.writer.Write(entry)
-		}
+		m.writer.Write(entry)
 	}
 }

@@ -13,6 +13,10 @@ func NewOperationLogOrchestration(logRepo domainRepo.OperationLogRepository) *Op
 	return &OperationLogOrchestration{logRepo: logRepo}
 }
 
-func (s *OperationLogOrchestration) ListLogs(page, pageSize int) ([]entity.OperationLog, int64, error) {
-	return s.logRepo.FindByPage(page, pageSize)
+func (s *OperationLogOrchestration) ListLogs(page, pageSize int, filter *domainRepo.LogFilter) ([]entity.OperationLog, int64, error) {
+	return s.logRepo.FindByPage(page, pageSize, filter)
+}
+
+func (s *OperationLogOrchestration) CountToday() (int64, error) {
+	return s.logRepo.CountToday()
 }
