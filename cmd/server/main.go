@@ -19,6 +19,7 @@ import (
 	"github.com/gsystes/backend/internal/infrastructure/config"
 	"github.com/gsystes/backend/internal/infrastructure/database"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
+	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 
@@ -44,6 +45,8 @@ func initRepos(db *gorm.DB) *appRepos {
 }
 
 func main() {
+	_ = godotenv.Load()
+
 	var configPath string
 	flag.StringVar(&configPath, "config", "config/config.yaml", "path to config file")
 	flag.Parse()

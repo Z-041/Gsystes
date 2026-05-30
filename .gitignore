@@ -36,4 +36,5 @@ logs/
 # Uploads
 uploads/
 
-frontend
+frontend/dist/
+frontend/node_modules/
