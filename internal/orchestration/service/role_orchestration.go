@@ -59,7 +59,7 @@ func (s *RoleOrchestration) CreateRole(req *CreateRoleRequest) (*entity.Role, er
 func (s *RoleOrchestration) UpdateRole(req *UpdateRoleRequest) error {
 	role, err := s.roleRepo.FindByID(req.ID)
 	if err != nil {
-		return errors.New("role not found")
+		return fmt.Errorf("role not found: %w", err)
 	}
 
 	existing, _ := s.roleRepo.FindByCode(req.Code)
@@ -76,7 +76,7 @@ func (s *RoleOrchestration) UpdateRole(req *UpdateRoleRequest) error {
 
 func (s *RoleOrchestration) DeleteRole(id uint) error {
 	if _, err := s.roleRepo.FindByID(id); err != nil {
-		return errors.New("role not found")
+		return fmt.Errorf("role not found: %w", err)
 	}
 	return s.roleRepo.Delete(id)
 }
@@ -95,7 +95,7 @@ func (s *RoleOrchestration) ListAllRoles() ([]entity.Role, error) {
 
 func (s *RoleOrchestration) AssignPermissions(req *AssignPermissionsRequest) error {
 	if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
-		return errors.New("role not found")
+		return fmt.Errorf("role not found: %w", err)
 	}
 
 	g, ctx := errgroup.WithContext(context.Background())
@@ -123,7 +123,7 @@ func (s *RoleOrchestration) AssignPermissions(req *AssignPermissionsRequest) err
 
 func (s *RoleOrchestration) GetRolePermissions(roleID uint) ([]entity.Permission, error) {
 	if _, err := s.roleRepo.FindByID(roleID); err != nil {
-		return nil, errors.New("role not found")
+		return nil, fmt.Errorf("role not found: %w", err)
 	}
 	return s.roleRepo.GetPermissions(roleID)
 }

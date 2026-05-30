@@ -11,6 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
+var defaultRoles = []*entity.Role{
+	{Name: "普通用户", Code: "user", Description: "基础用户角色，拥有基本查看权限", Status: 1},
+	{Name: "编辑者", Code: "editor", Description: "编辑者角色，拥有内容管理权限", Status: 1},
+	{Name: "审计员", Code: "auditor", Description: "审计员角色，拥有日志查看和审计权限", Status: 1},
+}
+
 var defaultPermissions = []*entity.Permission{
 	{Name: "用户管理", Code: "user:manage", Type: 1, Path: "/users", Sort: 1},
 	{Name: "创建用户", Code: "user:create", Type: 2, Path: "/users", Method: "POST", Sort: 2},
@@ -26,6 +32,21 @@ var defaultPermissions = []*entity.Permission{
 	{Name: "分配权限", Code: "perm:assign", Type: 2, Path: "/permissions", Method: "POST", Sort: 12},
 	{Name: "操作日志", Code: "log:manage", Type: 1, Path: "/logs", Sort: 13},
 	{Name: "查询日志", Code: "log:read", Type: 2, Path: "/logs", Method: "GET", Sort: 14},
+}
+
+func ensureRoles(db *gorm.DB, roleRepo domainRepo.RoleRepository) error {
+	for _, r := range defaultRoles {
+		var count int64
+		db.Model(&model.Role{}).Where("code = ?", r.Code).Count(&count)
+		if count > 0 {
+			continue
+		}
+		if err := roleRepo.Create(r); err != nil {
+			return fmt.Errorf("failed to create role %s: %w", r.Code, err)
+		}
+		logger.Info("default role created", logger.StringField("code", r.Code), logger.StringField("name", r.Name))
+	}
+	return nil
 }
 
 func ensurePermissions(db *gorm.DB, permRepo domainRepo.PermissionRepository) error {
@@ -96,17 +117,22 @@ func InitSeedData(
 		return err
 	}
 
-	// 2. Ensure all default permissions exist (idempotent)
+	// 2. Ensure default roles exist (普通用户, 编辑者, 审计员)
+	if err := ensureRoles(db, roleRepo); err != nil {
+		return err
+	}
+
+	// 3. Ensure all default permissions exist (idempotent)
 	if err := ensurePermissions(db, permRepo); err != nil {
 		return err
 	}
 
-	// 3. Assign all permissions to super_admin role (idempotent)
+	// 4. Assign all permissions to super_admin role (idempotent)
 	if err := assignAllPermissionsToRole(db, roleModel.ID, roleRepo); err != nil {
 		return err
 	}
 
-	// 4. Create admin user if not exists
+	// 5. Create admin user if not exists
 	existing, _ := userRepo.FindByUsername("admin")
 	if existing != nil {
 		logger.Info("seed data check completed, admin user already exists")

@@ -29,10 +29,11 @@ var allowedMimeTypes = map[string]bool{
 
 type UserHandler struct {
 	userOrchestration *orchestration.UserOrchestration
+	events            *EventBroadcaster
 }
 
-func NewUserHandler(userOrchestration *orchestration.UserOrchestration) *UserHandler {
-	return &UserHandler{userOrchestration: userOrchestration}
+func NewUserHandler(userOrchestration *orchestration.UserOrchestration, events *EventBroadcaster) *UserHandler {
+	return &UserHandler{userOrchestration: userOrchestration, events: events}
 }
 
 // Login godoc
@@ -110,6 +111,13 @@ func (h *UserHandler) Create(c *gin.Context) {
 	utils.Success(c, gin.H{
 		"id": user.ID,
 	})
+
+	h.events.BroadcastStats()
+	name := user.Nickname
+	if name == "" {
+		name = user.Username
+	}
+	h.events.SendNotification("系统", "新增用户", name+" 已被加入系统")
 }
 
 // Update godoc
@@ -179,6 +187,9 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+
+	h.events.BroadcastStats()
+	h.events.SendNotification("系统", "删除用户", "用户已被移除")
 }
 
 // Get godoc
@@ -365,9 +376,11 @@ func (h *UserHandler) AssignRole(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+
+	currentUser := infraMiddleware.GetUsername(c)
+	h.events.SendNotification(currentUser, "角色分配", "为用户 #"+idStr+" 分配了新角色")
 }
 
-// BatchAssignRole godoc
 // @Summary      批量分配角色
 // @Description  为一组用户批量分配角色
 // @Tags         用户-角色
@@ -395,6 +408,10 @@ func (h *UserHandler) BatchAssignRole(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+
+	count := len(req.UserIDs)
+	currentUser := infraMiddleware.GetUsername(c)
+	h.events.SendNotification(currentUser, "批量分配角色", "为 "+strconv.Itoa(count)+" 名用户分配了角色")
 }
 
 // GetUsersByRole godoc
@@ -656,6 +673,13 @@ func (h *UserHandler) UpdateStatus(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+
+	statusText := "启用"
+	if req.Status == 2 {
+		statusText = "禁用"
+	}
+	currentUser := infraMiddleware.GetUsername(c)
+	h.events.SendNotification(currentUser, "用户状态变更", "已将用户 #"+idStr+" "+statusText)
 }
 
 // ImportUsers godoc
@@ -724,6 +748,11 @@ func (h *UserHandler) ImportUsers(c *gin.Context) {
 	}
 
 	utils.Success(c, gin.H{"count": len(users)})
+
+	h.events.BroadcastStats()
+	count := len(users)
+	currentUser := infraMiddleware.GetUsername(c)
+	h.events.SendNotification(currentUser, "批量导入", "成功导入 "+strconv.Itoa(count)+" 名用户")
 }
 
 // ExportUsers godoc

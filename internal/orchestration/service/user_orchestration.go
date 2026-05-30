@@ -65,7 +65,7 @@ type BatchAssignRoleRequest struct {
 
 func (s *UserOrchestration) CreateUser(req *CreateUserRequest) (*entity.User, error) {
 	if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
-		return nil, errors.New("role not found")
+		return nil, fmt.Errorf("role not found: %w", err)
 	}
 
 	user := &entity.User{
@@ -91,7 +91,7 @@ func (s *UserOrchestration) UpdateUser(req *UpdateUserRequest) error {
 
 	if req.RoleID > 0 {
 		if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
-			return errors.New("role not found")
+			return fmt.Errorf("role not found: %w", err)
 		}
 	}
 
@@ -139,17 +139,17 @@ func (s *UserOrchestration) ChangePassword(userID uint, oldPassword, newPassword
 
 func (s *UserOrchestration) AssignRole(userID uint, roleID uint) error {
 	if _, err := s.userRepo.FindByID(userID); err != nil {
-		return errors.New("user not found")
+		return fmt.Errorf("user not found: %w", err)
 	}
 	if _, err := s.roleRepo.FindByID(roleID); err != nil {
-		return errors.New("role not found")
+		return fmt.Errorf("role not found: %w", err)
 	}
 	return s.userRepo.Update(&entity.User{ID: userID, RoleID: roleID})
 }
 
 func (s *UserOrchestration) BatchAssignRole(req *BatchAssignRoleRequest) error {
 	if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
-		return errors.New("role not found")
+		return fmt.Errorf("role not found: %w", err)
 	}
 	if len(req.UserIDs) == 0 {
 		return errors.New("user ids is required")
@@ -159,7 +159,7 @@ func (s *UserOrchestration) BatchAssignRole(req *BatchAssignRoleRequest) error {
 
 func (s *UserOrchestration) GetUsersByRole(roleID uint) ([]entity.User, error) {
 	if _, err := s.roleRepo.FindByID(roleID); err != nil {
-		return nil, errors.New("role not found")
+		return nil, fmt.Errorf("role not found: %w", err)
 	}
 	return s.userRepo.FindByRoleID(roleID)
 }
@@ -214,7 +214,7 @@ func buildMenuTree(permissions []entity.Permission, parentID uint) []*MenuTreeNo
 func (s *UserOrchestration) GetCurrentUserPermissions(userID uint) ([]string, error) {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, fmt.Errorf("user not found: %w", err)
 	}
 	if user.RoleID == 0 {
 		return nil, nil
@@ -233,7 +233,7 @@ func (s *UserOrchestration) GetCurrentUserPermissions(userID uint) ([]string, er
 func (s *UserOrchestration) GetCurrentUserMenus(userID uint) ([]*MenuTreeNode, error) {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, fmt.Errorf("user not found: %w", err)
 	}
 	if user.RoleID == 0 {
 		return nil, nil
@@ -312,7 +312,7 @@ func (s *UserOrchestration) ImportUsers(users []*CreateUserRequest) error {
 				}
 
 				if _, err := s.roleRepo.FindByID(req.RoleID); err != nil {
-					resultCh <- &validatedUser{err: fmt.Errorf("role not found: %s", req.Username)}
+					resultCh <- &validatedUser{err: fmt.Errorf("role not found for %s: %w", req.Username, err)}
 					continue
 				}
 				existing, _ := s.userRepo.FindByUsername(req.Username)

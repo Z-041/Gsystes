@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gsystes/backend/internal/communication/websocket"
 	"github.com/gsystes/backend/internal/domain/entity"
 	"github.com/gsystes/backend/internal/infrastructure/async"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
@@ -15,10 +16,11 @@ import (
 
 type OperationLogMiddleware struct {
 	writer *async.OperationLogWriter
+	wsHub  *websocket.Hub
 }
 
-func NewOperationLogMiddleware(writer *async.OperationLogWriter) *OperationLogMiddleware {
-	return &OperationLogMiddleware{writer: writer}
+func NewOperationLogMiddleware(writer *async.OperationLogWriter, wsHub *websocket.Hub) *OperationLogMiddleware {
+	return &OperationLogMiddleware{writer: writer, wsHub: wsHub}
 }
 
 var sensitiveKeys = []string{"password", "old_password", "new_password", "secret", "token", "access_token", "refresh_token"}
@@ -49,6 +51,34 @@ func shouldSkip(path string) bool {
 		}
 	}
 	return false
+}
+
+func extractModule(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) >= 2 {
+		return parts[1]
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return "other"
+}
+
+func methodToAction(method string) string {
+	switch method {
+	case "GET":
+		return "查询"
+	case "POST":
+		return "新增"
+	case "PUT":
+		return "修改"
+	case "DELETE":
+		return "删除"
+	case "PATCH":
+		return "修改"
+	default:
+		return method
+	}
 }
 
 func (m *OperationLogMiddleware) Handle() gin.HandlerFunc {
@@ -86,11 +116,27 @@ func (m *OperationLogMiddleware) Handle() gin.HandlerFunc {
 			UserAgent:  c.Request.UserAgent(),
 		}
 
+		var username string
 		if claims := infraMiddleware.GetClaims(c); claims != nil {
 			entry.UserID = claims.UserID
 			entry.Username = claims.Username
+			username = claims.Username
 		}
 
 		m.writer.Write(entry)
+
+		if m.wsHub != nil && m.wsHub.ClientCount() > 0 {
+			m.wsHub.BroadcastLogEntry(&websocket.LogEntryPayload{
+				Username:   username,
+				Module:     extractModule(path),
+				Action:     methodToAction(method),
+				Method:     method,
+				Path:       path,
+				IP:         c.ClientIP(),
+				Duration:   latency,
+				StatusCode: statusCode,
+				CreatedAt:  time.Now().Format(time.DateTime),
+			})
+		}
 	}
 }

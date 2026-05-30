@@ -10,45 +10,39 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gsystes/backend/internal/communication/handler"
-	mid "github.com/gsystes/backend/internal/communication/middleware"
-	"github.com/gsystes/backend/internal/communication/router"
 	"github.com/gsystes/backend/internal/data/migration"
 	dataRepo "github.com/gsystes/backend/internal/data/repository"
 	"github.com/gsystes/backend/internal/data/seed"
+	"github.com/gsystes/backend/internal/domain/repository"
 	domainService "github.com/gsystes/backend/internal/domain/service"
-	"github.com/gsystes/backend/internal/infrastructure/async"
 	"github.com/gsystes/backend/internal/infrastructure/cache"
 	"github.com/gsystes/backend/internal/infrastructure/config"
 	"github.com/gsystes/backend/internal/infrastructure/database"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
-	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 	"golang.org/x/sync/errgroup"
+	"gorm.io/gorm"
 
 	_ "github.com/gsystes/backend/docs/swagger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @title           Gsystes Backend API
-// @version         1.0
-// @description     中后台管理系统后端 API
-// @termsOfService  http://swagger.io/terms/
+type appRepos struct {
+	userRepo         repository.UserRepository
+	roleRepo         repository.RoleRepository
+	permRepo         repository.PermissionRepository
+	operationLogRepo repository.OperationLogRepository
+}
 
-// @contact.name   API Support
-// @contact.url    http://www.swagger.io/support
-// @contact.email  support@swagger.io
+func initRepos(db *gorm.DB) *appRepos {
+	return &appRepos{
+		userRepo:         dataRepo.NewUserRepository(db),
+		roleRepo:         dataRepo.NewRoleRepository(db),
+		permRepo:         dataRepo.NewPermissionRepository(db),
+		operationLogRepo: dataRepo.NewOperationLogRepository(db),
+	}
+}
 
-// @license.name  Apache 2.0
-// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @host      localhost:8080
-// @BasePath  /api/v1
-
-// @securityDefinitions.apikey  BearerAuth
-// @in                          header
-// @name                        Authorization
-// @description                 Type "Bearer" followed by a space and JWT token.
 func main() {
 	var configPath string
 	flag.StringVar(&configPath, "config", "config/config.yaml", "path to config file")
@@ -64,7 +58,6 @@ func main() {
 	}
 
 	eg, _ := errgroup.WithContext(context.Background())
-
 	eg.Go(func() error {
 		return database.InitDatabase(cfg.Database)
 	})
@@ -76,41 +69,21 @@ func main() {
 		logger.Fatal("failed to initialize infrastructure", logger.ErrorField(err))
 	}
 
-	if err := migration.AutoMigrate(database.GetDB()); err != nil {
+	db := database.GetDB()
+	if err := migration.AutoMigrate(db); err != nil {
 		logger.Fatal("failed to auto migrate", logger.ErrorField(err))
 	}
 
-	db := database.GetDB()
-	userRepo := dataRepo.NewUserRepository(db)
-	roleRepo := dataRepo.NewRoleRepository(db)
-	permRepo := dataRepo.NewPermissionRepository(db)
-	operationLogRepo := dataRepo.NewOperationLogRepository(db)
+	repos := initRepos(db)
+	userDomainService := domainService.NewUserDomainService(repos.userRepo)
 
-	userDomainService := domainService.NewUserDomainService(userRepo)
-
-	if err := seed.InitSeedData(db, userDomainService, userRepo, roleRepo, permRepo); err != nil {
+	if err := seed.InitSeedData(db, userDomainService, repos.userRepo, repos.roleRepo, repos.permRepo); err != nil {
 		logger.Fatal("failed to init seed data", logger.ErrorField(err))
 	}
 
-	logWriter := async.NewOperationLogWriter(operationLogRepo, 4, 4096)
-	logWriter.Start()
+	app := SetupContainer(repos)
 
-	userOrchestration := orchestration.NewUserOrchestration(userDomainService, userRepo, roleRepo)
-	roleOrchestration := orchestration.NewRoleOrchestration(roleRepo, permRepo)
-	permOrchestration := orchestration.NewPermissionOrchestration(permRepo)
-	logOrchestration := orchestration.NewOperationLogOrchestration(operationLogRepo)
-
-	userHandler := handler.NewUserHandler(userOrchestration)
-	roleHandler := handler.NewRoleHandler(roleOrchestration)
-	permHandler := handler.NewPermissionHandler(permOrchestration)
-	logHandler := handler.NewOperationLogHandler(logOrchestration)
-	dashboardHandler := handler.NewDashboardHandler(userRepo, roleRepo, operationLogRepo)
-
-	operationLogMid := mid.NewOperationLogMiddleware(logWriter)
-	permMid := mid.NewPermissionMiddleware(roleRepo)
-
-	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, dashboardHandler, operationLogMid, permMid)
-
+	r := app.Engine
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
@@ -139,8 +112,7 @@ func main() {
 		logger.Error("server forced to shutdown", logger.ErrorField(err))
 	}
 
-	logWriter.Stop()
-	mid.StopMemoryLimiter()
+	app.Shutdown()
 
 	if err := cache.Close(); err != nil {
 		logger.Error("failed to close redis", logger.ErrorField(err))

@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/handler"
 	mid "github.com/gsystes/backend/internal/communication/middleware"
+	ws "github.com/gsystes/backend/internal/communication/websocket"
 	"github.com/gsystes/backend/internal/infrastructure/config"
 )
 
@@ -15,6 +16,7 @@ func SetupRouter(
 	dashboardHandler *handler.DashboardHandler,
 	operationLogMid *mid.OperationLogMiddleware,
 	permMid *mid.PermissionMiddleware,
+	wsHub *ws.Hub,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -29,6 +31,10 @@ func SetupRouter(
 	r.Use(mid.RequestLogger())
 
 	r.Static("/uploads", config.GetConfig().Upload.Dir)
+
+	r.GET("/ws", func(c *gin.Context) {
+		ws.HandleUpgrade(wsHub).ServeHTTP(c.Writer, c.Request)
+	})
 
 	rlCfg := config.GetConfig().RateLimit
 	defaultLimit := mid.RateLimiter(rlCfg.DefaultRate, rlCfg.DefaultBurst, rlCfg.Window)

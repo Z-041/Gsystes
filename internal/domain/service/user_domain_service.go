@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gsystes/backend/internal/domain/entity"
 	"github.com/gsystes/backend/internal/domain/repository"
@@ -36,7 +37,7 @@ func (s *UserDomainService) Create(user *entity.User, plainPassword string) erro
 func (s *UserDomainService) UpdatePassword(userID uint, oldPassword, newPassword string) error {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
-		return errors.New("user not found")
+		return fmt.Errorf("user not found: %w", err)
 	}
 
 	if !utils.CheckPassword(oldPassword, user.Password) {

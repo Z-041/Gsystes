@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -126,11 +127,26 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	applyEnvOverrides(&cfg)
+
 	configMu.Lock()
 	globalConfig = &cfg
 	configMu.Unlock()
 
 	return globalConfig, nil
+}
+
+func envOrDefault(envKey, fallback string) string {
+	if val := os.Getenv(envKey); val != "" {
+		return val
+	}
+	return fallback
+}
+
+func applyEnvOverrides(cfg *Config) {
+	cfg.Database.Password = envOrDefault("GSYSTES_DATABASE_PASSWORD", cfg.Database.Password)
+	cfg.JWT.Secret = envOrDefault("GSYSTES_JWT_SECRET", cfg.JWT.Secret)
+	cfg.Redis.Password = envOrDefault("GSYSTES_REDIS_PASSWORD", cfg.Redis.Password)
 }
 
 func GetConfig() *Config {

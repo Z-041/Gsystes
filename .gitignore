@@ -31,4 +31,9 @@ logs/
 # Environment
 .env
 .env.local
-frontend/
+.env.*.local
+
+# Uploads
+uploads/
+
+frontend

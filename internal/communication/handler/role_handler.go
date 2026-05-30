@@ -5,16 +5,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
+	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 )
 
 type RoleHandler struct {
 	roleOrchestration *orchestration.RoleOrchestration
+	events            *EventBroadcaster
 }
 
-func NewRoleHandler(roleOrchestration *orchestration.RoleOrchestration) *RoleHandler {
-	return &RoleHandler{roleOrchestration: roleOrchestration}
+func NewRoleHandler(roleOrchestration *orchestration.RoleOrchestration, events *EventBroadcaster) *RoleHandler {
+	return &RoleHandler{roleOrchestration: roleOrchestration, events: events}
 }
 
 // Create godoc
@@ -47,6 +49,10 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	}
 
 	utils.Success(c, gin.H{"id": role.ID})
+
+	h.events.BroadcastStats()
+	currentUser := infraMiddleware.GetUsername(c)
+	h.events.SendNotification(currentUser, "新增角色", "角色 "+role.Name+" 已创建")
 }
 
 // Update godoc
@@ -115,6 +121,10 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+
+	h.events.BroadcastStats()
+	currentUser := infraMiddleware.GetUsername(c)
+	h.events.SendNotification(currentUser, "删除角色", "角色已被移除")
 }
 
 // Get godoc
@@ -264,6 +274,9 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+
+	currentUser := infraMiddleware.GetUsername(c)
+	h.events.SendNotification(currentUser, "权限变更", "角色的权限已更新")
 }
 
 // GetPermissions godoc

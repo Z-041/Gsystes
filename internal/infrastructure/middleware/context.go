@@ -32,3 +32,11 @@ func GetUserID(c *gin.Context) uint {
 	}
 	return claims.UserID
 }
+
+func GetUsername(c *gin.Context) string {
+	claims := GetClaims(c)
+	if claims == nil {
+		return ""
+	}
+	return claims.Username
+}

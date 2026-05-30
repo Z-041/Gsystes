@@ -2,46 +2,30 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	domainRepo "github.com/gsystes/backend/internal/domain/repository"
+	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 )
 
 type DashboardHandler struct {
-	userRepo domainRepo.UserRepository
-	roleRepo domainRepo.RoleRepository
-	logRepo  domainRepo.OperationLogRepository
+	dashboardOrchestration *orchestration.DashboardOrchestration
 }
 
-func NewDashboardHandler(
-	userRepo domainRepo.UserRepository,
-	roleRepo domainRepo.RoleRepository,
-	logRepo domainRepo.OperationLogRepository,
-) *DashboardHandler {
+func NewDashboardHandler(dashboardOrchestration *orchestration.DashboardOrchestration) *DashboardHandler {
 	return &DashboardHandler{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
-		logRepo:  logRepo,
+		dashboardOrchestration: dashboardOrchestration,
 	}
 }
 
 func (h *DashboardHandler) Stats(c *gin.Context) {
-	userCount, err := h.userRepo.Count()
+	stats, err := h.dashboardOrchestration.GetStats()
 	if err != nil {
-		utils.InternalError(c, "failed to get user count")
+		utils.InternalError(c, err.Error())
 		return
 	}
-
-	roleCount, err := h.roleRepo.Count()
-	if err != nil {
-		utils.InternalError(c, "failed to get role count")
-		return
-	}
-
-	todayLogCount, _ := h.logRepo.CountToday()
 
 	utils.Success(c, gin.H{
-		"user_count":       userCount,
-		"role_count":       roleCount,
-		"today_log_count":  todayLogCount,
+		"user_count":      stats.UserCount,
+		"role_count":      stats.RoleCount,
+		"today_log_count": stats.TodayLogCount,
 	})
 }
