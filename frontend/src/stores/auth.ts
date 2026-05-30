@@ -4,7 +4,7 @@ import type { UserInfo, LoginParams } from '@/types/user'
 import type { PermissionInfo } from '@/types/permission'
 import { loginApi, getCurrentPermissionsApi, getCurrentMenusApi } from '@/api/auth'
 import { getUserProfileApi } from '@/api/user'
-import { useAppStore } from './app'
+import { useAppStore } from '@/stores/app'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string>(localStorage.getItem('token') || '')
