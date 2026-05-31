@@ -67,15 +67,15 @@ func extractModule(path string) string {
 func methodToAction(method string) string {
 	switch method {
 	case "GET":
-		return "查询"
+		return "query"
 	case "POST":
-		return "新增"
+		return "create"
 	case "PUT":
-		return "修改"
+		return "update"
 	case "DELETE":
-		return "删除"
+		return "delete"
 	case "PATCH":
-		return "修改"
+		return "update"
 	default:
 		return method
 	}

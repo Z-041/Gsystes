@@ -33,14 +33,14 @@ func SetupContainer(repos *appRepos) *AppContainer {
 
 	eventBroadcaster := handler.NewEventBroadcaster(wsHub, repos.userRepo, repos.roleRepo, repos.operationLogRepo)
 
+	operationLogMid := mid.NewOperationLogMiddleware(logWriter, wsHub)
+	permMid := mid.NewPermissionMiddleware(repos.roleRepo)
+
 	userHandler := handler.NewUserHandler(userOrchestration, eventBroadcaster)
-	roleHandler := handler.NewRoleHandler(roleOrchestration, eventBroadcaster)
+	roleHandler := handler.NewRoleHandler(roleOrchestration, eventBroadcaster, permMid)
 	permHandler := handler.NewPermissionHandler(permOrchestration)
 	logHandler := handler.NewOperationLogHandler(logOrchestration)
 	dashboardHandler := handler.NewDashboardHandler(dashboardOrchestration)
-
-	operationLogMid := mid.NewOperationLogMiddleware(logWriter, wsHub)
-	permMid := mid.NewPermissionMiddleware(repos.roleRepo)
 
 	r := router.SetupRouter(userHandler, roleHandler, permHandler, logHandler, dashboardHandler, operationLogMid, permMid, wsHub)
 

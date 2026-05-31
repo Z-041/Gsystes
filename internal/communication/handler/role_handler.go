@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
+	mid "github.com/gsystes/backend/internal/communication/middleware"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
@@ -11,10 +12,11 @@ import (
 type RoleHandler struct {
 	roleOrchestration *orchestration.RoleOrchestration
 	events            *EventBroadcaster
+	permMid           *mid.PermissionMiddleware
 }
 
-func NewRoleHandler(roleOrchestration *orchestration.RoleOrchestration, events *EventBroadcaster) *RoleHandler {
-	return &RoleHandler{roleOrchestration: roleOrchestration, events: events}
+func NewRoleHandler(roleOrchestration *orchestration.RoleOrchestration, events *EventBroadcaster, permMid *mid.PermissionMiddleware) *RoleHandler {
+	return &RoleHandler{roleOrchestration: roleOrchestration, events: events, permMid: permMid}
 }
 
 // Create godoc
@@ -250,6 +252,8 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	}
 
 	utils.Success(c, nil)
+
+	h.permMid.InvalidateCache(id)
 
 	currentUser := infraMiddleware.GetUsername(c)
 	h.events.SendNotification(currentUser, "权限变更", "角色的权限已更新")

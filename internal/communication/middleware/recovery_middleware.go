@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
+	"github.com/gsystes/backend/internal/infrastructure/utils"
 )
 
 func Recovery() gin.HandlerFunc {
@@ -16,9 +17,9 @@ func Recovery() gin.HandlerFunc {
 					logger.AnyField("error", err),
 					logger.AnyField("stack", string(debug.Stack())),
 				)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"code":    -1,
-					"message": "internal server error",
+				c.AbortWithStatusJSON(http.StatusInternalServerError, utils.Response{
+					Code:    -1,
+					Message: "internal server error",
 				})
 			}
 		}()
