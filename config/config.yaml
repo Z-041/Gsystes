@@ -4,6 +4,7 @@
 #   GSYSTES_DATABASE_PASSWORD  - 数据库密码
 #   GSYSTES_JWT_SECRET        - JWT 签名密钥
 #   GSYSTES_REDIS_PASSWORD    - Redis 密码
+#   GSYSTES_ADMIN_PASSWORD    - 管理员初始密码
 # ============================================================
 
 server:
@@ -35,6 +36,7 @@ jwt:
   secret: ""
   issuer: gsystes
   expire_hours: 24
+  signing_method: HS256
 
 log:
   level: info
@@ -65,3 +67,9 @@ cors:
   allowed_origins:
     - http://localhost:5173
     - http://localhost:3000
+
+admin:
+  username: admin
+  password: admin123
+  nickname: 超级管理员
+  email: admin@gsystes.com

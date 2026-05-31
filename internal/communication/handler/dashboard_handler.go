@@ -3,8 +3,8 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
-	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
+	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 )
 
 type DashboardHandler struct {

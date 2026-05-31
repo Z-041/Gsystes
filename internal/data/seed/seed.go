@@ -7,6 +7,7 @@ import (
 	"github.com/gsystes/backend/internal/domain/entity"
 	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	domainService "github.com/gsystes/backend/internal/domain/service"
+	"github.com/gsystes/backend/internal/infrastructure/config"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
 	"gorm.io/gorm"
 )
@@ -139,16 +140,34 @@ func InitSeedData(
 		return nil
 	}
 
+	adminCfg := config.GetConfig().Admin
+	username := adminCfg.Username
+	if username == "" {
+		username = "admin"
+	}
+	nickname := adminCfg.Nickname
+	if nickname == "" {
+		nickname = "超级管理员"
+	}
+	email := adminCfg.Email
+	if email == "" {
+		email = "admin@gsystes.com"
+	}
+	password := adminCfg.Password
+	if password == "" {
+		password = "admin123"
+	}
+
 	adminUser := &entity.User{
-		Username: "admin",
-		Nickname: "超级管理员",
-		Email:    "admin@gsystes.com",
+		Username: username,
+		Nickname: nickname,
+		Email:    email,
 		RoleID:   roleModel.ID,
 	}
-	if err := userSvc.Create(adminUser, "admin123"); err != nil {
+	if err := userSvc.Create(adminUser, password); err != nil {
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
-	logger.Info("admin user created", logger.StringField("username", "admin"))
+	logger.Info("admin user created", logger.StringField("username", username))
 
 	logger.Info("seed data initialization completed")
 	return nil

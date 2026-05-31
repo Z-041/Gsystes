@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gsystes/backend/internal/domain/entity"
+	"github.com/gsystes/backend/internal/domain/repository"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 )
 
@@ -49,7 +50,7 @@ func (m *mockUserRepo) FindByUsername(username string) (*entity.User, error) {
 	return nil, errors.New("user not found")
 }
 
-func (m *mockUserRepo) FindByPage(page, pageSize int, conditions map[string]interface{}) ([]entity.User, int64, error) {
+func (m *mockUserRepo) FindByPage(page, pageSize int, filter *repository.UserFilter) ([]entity.User, int64, error) {
 	return nil, 0, nil
 }
 

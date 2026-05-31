@@ -70,5 +70,3 @@ func TestPageSuccess(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", w.Code)
 	}
 }
-
-

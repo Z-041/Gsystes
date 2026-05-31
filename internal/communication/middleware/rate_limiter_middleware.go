@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,12 +127,26 @@ func allowWithRedis(key string, rate int, window time.Duration) bool {
 	return countCmd.Val() < int64(rate)
 }
 
+func getClientIP(c *gin.Context) string {
+	if ip := c.GetHeader("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if ip := c.GetHeader("X-Forwarded-For"); ip != "" {
+		idx := strings.IndexByte(ip, ',')
+		if idx > 0 {
+			return strings.TrimSpace(ip[:idx])
+		}
+		return strings.TrimSpace(ip)
+	}
+	return c.ClientIP()
+}
+
 func buildRateKey(c *gin.Context, prefix string) string {
 	userID := infraMiddleware.GetUserID(c)
 	if userID > 0 {
-		return rateLimitKeyPrefix + prefix + ":user:" + c.ClientIP()
+		return rateLimitKeyPrefix + prefix + ":user:" + getClientIP(c)
 	}
-	return rateLimitKeyPrefix + prefix + ":ip:" + c.ClientIP()
+	return rateLimitKeyPrefix + prefix + ":ip:" + getClientIP(c)
 }
 
 func RateLimiter(rate int, burst int, window time.Duration) gin.HandlerFunc {

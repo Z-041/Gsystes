@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/gsystes/backend/internal/domain/entity"
+	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 )
 
 type mockUserRepo struct {
@@ -61,11 +62,22 @@ func (m *mockUserRepo) FindByUsername(username string) (*entity.User, error) {
 	return nil, errors.New("user not found")
 }
 
-func (m *mockUserRepo) FindByPage(page, pageSize int, conditions map[string]interface{}) ([]entity.User, int64, error) {
+func (m *mockUserRepo) FindByPage(page, pageSize int, filter *domainRepo.UserFilter) ([]entity.User, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	all := make([]entity.User, 0, len(m.users))
 	for _, u := range m.users {
+		if filter != nil {
+			if filter.Username != "" && u.Username != filter.Username {
+				continue
+			}
+			if filter.Status != nil && u.Status != *filter.Status {
+				continue
+			}
+			if filter.RoleID != nil && u.RoleID != *filter.RoleID {
+				continue
+			}
+		}
 		all = append(all, *u)
 	}
 	total := int64(len(all))

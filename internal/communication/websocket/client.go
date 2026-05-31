@@ -30,12 +30,13 @@ func nextClientID() string {
 }
 
 type Client struct {
-	id       string
-	username string
-	userID   uint
-	hub      *Hub
-	conn     *websocket.Conn
-	send     chan []byte
+	id         string
+	username   string
+	userID     uint
+	hub        *Hub
+	conn       *websocket.Conn
+	send       chan []byte
+	sendFailed bool
 }
 
 func NewClient(hub *Hub, conn *websocket.Conn, userID uint, username string) *Client {

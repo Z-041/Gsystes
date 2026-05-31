@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
 	"github.com/gsystes/backend/internal/domain/entity"
-	"github.com/gsystes/backend/internal/infrastructure/auth"
+	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	"github.com/gsystes/backend/internal/infrastructure/config"
 	"github.com/gsystes/backend/internal/infrastructure/logger"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
@@ -59,7 +59,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	resp, err := h.userOrchestration.Login(&orchestration.LoginRequest{
 		Username: req.Username,
 		Password: req.Password,
-	}, auth.GenerateToken)
+	})
 	if err != nil {
 		utils.Unauthorized(c, err.Error())
 		return
@@ -251,18 +251,23 @@ func (h *UserHandler) Get(c *gin.Context) {
 func (h *UserHandler) List(c *gin.Context) {
 	pg := utils.GetPagination(c)
 
-	conditions := make(map[string]interface{})
+	filter := &domainRepo.UserFilter{
+		PreloadRole: true,
+	}
 	if username := c.Query("username"); username != "" {
-		conditions["username LIKE ?"] = "%" + username + "%"
+		filter.Username = username
 	}
-	if status := c.Query("status"); status != "" {
-		conditions["status = ?"] = status
+	if statusStr := c.Query("status"); statusStr != "" {
+		status, _ := strconv.Atoi(statusStr)
+		filter.Status = &status
 	}
-	if roleID := c.Query("role_id"); roleID != "" {
-		conditions["role_id = ?"] = roleID
+	if roleIDStr := c.Query("role_id"); roleIDStr != "" {
+		roleID, _ := strconv.ParseUint(roleIDStr, 10, 64)
+		rid := uint(roleID)
+		filter.RoleID = &rid
 	}
 
-	users, total, err := h.userOrchestration.ListUsers(pg.Page, pg.PageSize, conditions)
+	users, total, err := h.userOrchestration.ListUsers(pg.Page, pg.PageSize, filter)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
@@ -654,7 +659,7 @@ func (h *UserHandler) UpdateStatus(c *gin.Context) {
 	utils.Success(c, nil)
 
 	statusText := "启用"
-	if req.Status == 2 {
+	if req.Status == int(entity.UserStatusInactive) {
 		statusText = "禁用"
 	}
 	currentUser := infraMiddleware.GetUsername(c)

@@ -65,8 +65,8 @@ func TestRoleOrchestration_UpdateRole_Success(t *testing.T) {
 	if updated.Name != "New" {
 		t.Fatalf("expected name New, got %s", updated.Name)
 	}
-	if updated.Status != 2 {
-		t.Fatalf("expected status 2, got %d", updated.Status)
+	if updated.Status != int(entity.RoleStatusInactive) {
+		t.Fatalf("expected status %d, got %d", entity.RoleStatusInactive, updated.Status)
 	}
 }
 

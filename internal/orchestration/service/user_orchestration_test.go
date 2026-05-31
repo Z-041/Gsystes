@@ -7,12 +7,18 @@ import (
 	domainService "github.com/gsystes/backend/internal/domain/service"
 )
 
+type mockTokenService struct{}
+
+func (m *mockTokenService) GenerateToken(userID uint, username string, roleID uint) (string, error) {
+	return "mock-token", nil
+}
+
 func TestUserOrchestration_CreateUser_Success(t *testing.T) {
 	userRepo := newMockUserRepo()
 	roleRepo := newMockRoleRepo()
 	roleRepo.Create(&entity.Role{Name: "Admin", Code: "admin"})
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	user, err := svc.CreateUser(&CreateUserRequest{
 		Username: "newuser",
@@ -35,7 +41,7 @@ func TestUserOrchestration_CreateUser_RoleNotFound(t *testing.T) {
 	userRepo := newMockUserRepo()
 	roleRepo := newMockRoleRepo()
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	_, err := svc.CreateUser(&CreateUserRequest{
 		Username: "nobody",
@@ -53,7 +59,7 @@ func TestUserOrchestration_AssignRole_Success(t *testing.T) {
 	roleRepo.Create(&entity.Role{Name: "R1", Code: "r1"})
 	roleRepo.Create(&entity.Role{Name: "R2", Code: "r2"})
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	user, _ := svc.CreateUser(&CreateUserRequest{
 		Username: "u1", Password: "pass123", RoleID: 1,
@@ -69,7 +75,7 @@ func TestUserOrchestration_UpdateProfile_Success(t *testing.T) {
 	roleRepo := newMockRoleRepo()
 	roleRepo.Create(&entity.Role{Name: "R", Code: "r"})
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	user, _ := svc.CreateUser(&CreateUserRequest{
 		Username: "u1", Password: "pass123", RoleID: 1,
@@ -95,7 +101,7 @@ func TestUserOrchestration_UpdateStatus_Success(t *testing.T) {
 	roleRepo := newMockRoleRepo()
 	roleRepo.Create(&entity.Role{Name: "R", Code: "r"})
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	user, _ := svc.CreateUser(&CreateUserRequest{
 		Username: "u1", Password: "pass123", RoleID: 1,
@@ -106,8 +112,8 @@ func TestUserOrchestration_UpdateStatus_Success(t *testing.T) {
 	}
 
 	got, _ := userRepo.FindByID(user.ID)
-	if got.Status != 2 {
-		t.Fatalf("expected status 2, got %d", got.Status)
+	if got.Status != int(entity.UserStatusInactive) {
+		t.Fatalf("expected status %d, got %d", entity.UserStatusInactive, got.Status)
 	}
 }
 
@@ -116,7 +122,7 @@ func TestUserOrchestration_UpdateAvatar_Success(t *testing.T) {
 	roleRepo := newMockRoleRepo()
 	roleRepo.Create(&entity.Role{Name: "R", Code: "r"})
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	user, _ := svc.CreateUser(&CreateUserRequest{
 		Username: "u1", Password: "pass123", RoleID: 1,
@@ -139,7 +145,7 @@ func TestUserOrchestration_GetCurrentUserMenus(t *testing.T) {
 	roleRepo.AssignPermissions(1, []uint{1, 2})
 
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	user, err := svc.CreateUser(&CreateUserRequest{
 		Username: "u1", Password: "pass123", RoleID: 1,
@@ -164,7 +170,7 @@ func TestUserOrchestration_GetCurrentUserPermissions(t *testing.T) {
 	roleRepo.AssignPermissions(1, []uint{1, 2})
 
 	userSvc := domainService.NewUserDomainService(userRepo)
-	svc := NewUserOrchestration(userSvc, userRepo, roleRepo)
+	svc := NewUserOrchestration(userSvc, userRepo, roleRepo, &mockTokenService{})
 
 	_, _ = svc.CreateUser(&CreateUserRequest{
 		Username: "u1", Password: "pass123", RoleID: 1,

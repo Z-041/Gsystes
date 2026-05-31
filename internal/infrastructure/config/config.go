@@ -20,6 +20,14 @@ type Config struct {
 	Upload    UploadConfig    `mapstructure:"upload"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
 	CORS      CORSConfig      `mapstructure:"cors"`
+	Admin     AdminConfig     `mapstructure:"admin"`
+}
+
+type AdminConfig struct {
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	Nickname string `mapstructure:"nickname"`
+	Email    string `mapstructure:"email"`
 }
 
 type ServerConfig struct {
@@ -60,9 +68,10 @@ func (r RedisConfig) Addr() string {
 }
 
 type JWTConfig struct {
-	Secret      string `mapstructure:"secret"`
-	Issuer      string `mapstructure:"issuer"`
-	ExpireHours int    `mapstructure:"expire_hours"`
+	Secret        string `mapstructure:"secret"`
+	Issuer        string `mapstructure:"issuer"`
+	ExpireHours   int    `mapstructure:"expire_hours"`
+	SigningMethod string `mapstructure:"signing_method"`
 }
 
 type LogConfig struct {
@@ -147,6 +156,7 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.Database.Password = envOrDefault("GSYSTES_DATABASE_PASSWORD", cfg.Database.Password)
 	cfg.JWT.Secret = envOrDefault("GSYSTES_JWT_SECRET", cfg.JWT.Secret)
 	cfg.Redis.Password = envOrDefault("GSYSTES_REDIS_PASSWORD", cfg.Redis.Password)
+	cfg.Admin.Password = envOrDefault("GSYSTES_ADMIN_PASSWORD", cfg.Admin.Password)
 }
 
 func GetConfig() *Config {

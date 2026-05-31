@@ -2,6 +2,7 @@ package async
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/gsystes/backend/internal/domain/entity"
 	"github.com/gsystes/backend/internal/domain/repository"
@@ -14,6 +15,7 @@ type OperationLogWriter struct {
 	workers int
 	wg      sync.WaitGroup
 	stopCh  chan struct{}
+	dropped atomic.Int64
 }
 
 func NewOperationLogWriter(repo repository.OperationLogRepository, workers int, queueSize int) *OperationLogWriter {
@@ -83,12 +85,25 @@ func (w *OperationLogWriter) Write(entry *entity.OperationLog) {
 	select {
 	case w.queue <- entry:
 	default:
-		logger.Warn("operation log queue full, dropping entry")
+		w.dropped.Add(1)
+		total := w.dropped.Load()
+		logger.Warn("operation log queue full, dropping entry",
+			logger.Int64Field("total_dropped", total),
+		)
 	}
+}
+
+func (w *OperationLogWriter) DroppedCount() int64 {
+	return w.dropped.Load()
 }
 
 func (w *OperationLogWriter) Stop() {
 	close(w.stopCh)
 	w.wg.Wait()
+	if dropped := w.dropped.Load(); dropped > 0 {
+		logger.Warn("operation log writer stopped with dropped entries",
+			logger.Int64Field("total_dropped", dropped),
+		)
+	}
 	logger.Info("async log writer stopped")
 }

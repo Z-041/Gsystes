@@ -91,13 +91,21 @@ func (r *userRepository) FindByUsername(username string) (*domainEntity.User, er
 	return r.toDomain(&m), nil
 }
 
-func (r *userRepository) FindByPage(page, pageSize int, conditions map[string]interface{}) ([]domainEntity.User, int64, error) {
+func (r *userRepository) FindByPage(page, pageSize int, filter *domainRepo.UserFilter) ([]domainEntity.User, int64, error) {
 	var models []model.User
 	var total int64
 
 	query := r.db.Model(&model.User{})
-	for key, value := range conditions {
-		query = query.Where(key, value)
+	if filter != nil {
+		if filter.Username != "" {
+			query = query.Where("username LIKE ?", "%"+filter.Username+"%")
+		}
+		if filter.Status != nil {
+			query = query.Where("status = ?", *filter.Status)
+		}
+		if filter.RoleID != nil {
+			query = query.Where("role_id = ?", *filter.RoleID)
+		}
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -105,7 +113,11 @@ func (r *userRepository) FindByPage(page, pageSize int, conditions map[string]in
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Preload("Role").Offset(offset).Limit(pageSize).Order("id DESC").Find(&models).Error; err != nil {
+	query = query.Offset(offset).Limit(pageSize).Order("id DESC")
+	if filter != nil && filter.PreloadRole {
+		query = query.Preload("Role")
+	}
+	if err := query.Find(&models).Error; err != nil {
 		return nil, 0, err
 	}
 

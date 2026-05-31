@@ -9,6 +9,7 @@ import (
 	"github.com/gsystes/backend/internal/domain/entity"
 	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	domainService "github.com/gsystes/backend/internal/domain/service"
+	"github.com/gsystes/backend/internal/infrastructure/auth"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 	"golang.org/x/sync/errgroup"
 )
@@ -17,17 +18,20 @@ type UserOrchestration struct {
 	userDomainService *domainService.UserDomainService
 	userRepo          domainRepo.UserRepository
 	roleRepo          domainRepo.RoleRepository
+	tokenService      auth.TokenService
 }
 
 func NewUserOrchestration(
 	userDomainService *domainService.UserDomainService,
 	userRepo domainRepo.UserRepository,
 	roleRepo domainRepo.RoleRepository,
+	tokenService auth.TokenService,
 ) *UserOrchestration {
 	return &UserOrchestration{
 		userDomainService: userDomainService,
 		userRepo:          userRepo,
 		roleRepo:          roleRepo,
+		tokenService:      tokenService,
 	}
 }
 
@@ -113,17 +117,17 @@ func (s *UserOrchestration) GetUser(id uint) (*entity.User, error) {
 	return s.userRepo.FindByID(id)
 }
 
-func (s *UserOrchestration) ListUsers(page, pageSize int, conditions map[string]interface{}) ([]entity.User, int64, error) {
-	return s.userRepo.FindByPage(page, pageSize, conditions)
+func (s *UserOrchestration) ListUsers(page, pageSize int, filter *domainRepo.UserFilter) ([]entity.User, int64, error) {
+	return s.userRepo.FindByPage(page, pageSize, filter)
 }
 
-func (s *UserOrchestration) Login(req *LoginRequest, tokenGenerator func(userID uint, username string, roleID uint) (string, error)) (*LoginResponse, error) {
+func (s *UserOrchestration) Login(req *LoginRequest) (*LoginResponse, error) {
 	user, err := s.userDomainService.ValidateCredentials(req.Username, req.Password)
 	if err != nil {
 		return nil, err
 	}
 
-	token, err := tokenGenerator(user.ID, user.Username, user.RoleID)
+	token, err := s.tokenService.GenerateToken(user.ID, user.Username, user.RoleID)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +329,7 @@ func (s *UserOrchestration) ImportUsers(users []*CreateUserRequest) error {
 						Email:    req.Email,
 						Phone:    req.Phone,
 						RoleID:   req.RoleID,
-						Status:   1,
+						Status:   int(entity.UserStatusActive),
 					},
 				}
 			}

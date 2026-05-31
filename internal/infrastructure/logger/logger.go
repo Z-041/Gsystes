@@ -116,3 +116,7 @@ func DurationField(key string, value time.Duration) zap.Field {
 func UintField(key string, value uint) zap.Field {
 	return zap.Uint(key, value)
 }
+
+func Int64Field(key string, value int64) zap.Field {
+	return zap.Int64(key, value)
+}

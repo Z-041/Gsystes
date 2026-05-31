@@ -8,6 +8,7 @@ import (
 	ws "github.com/gsystes/backend/internal/communication/websocket"
 	domainService "github.com/gsystes/backend/internal/domain/service"
 	"github.com/gsystes/backend/internal/infrastructure/async"
+	"github.com/gsystes/backend/internal/infrastructure/auth"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 )
 
@@ -25,7 +26,9 @@ func SetupContainer(repos *appRepos) *AppContainer {
 	wsHub := ws.NewHub()
 	go wsHub.Run()
 
-	userOrchestration := orchestration.NewUserOrchestration(userDomainService, repos.userRepo, repos.roleRepo)
+	tokenService := auth.NewTokenService()
+
+	userOrchestration := orchestration.NewUserOrchestration(userDomainService, repos.userRepo, repos.roleRepo, tokenService)
 	roleOrchestration := orchestration.NewRoleOrchestration(repos.roleRepo, repos.permRepo)
 	permOrchestration := orchestration.NewPermissionOrchestration(repos.permRepo)
 	logOrchestration := orchestration.NewOperationLogOrchestration(repos.operationLogRepo)
