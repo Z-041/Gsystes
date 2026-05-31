@@ -133,10 +133,8 @@ func (h *UserHandler) Create(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /users/{id} [put]
 func (h *UserHandler) Update(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid user id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
@@ -148,7 +146,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.userOrchestration.UpdateUser(&orchestration.UpdateUserRequest{
-		ID:       uint(id),
+		ID:       id,
 		Nickname: req.Nickname,
 		Email:    req.Email,
 		Phone:    req.Phone,
@@ -174,14 +172,12 @@ func (h *UserHandler) Update(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /users/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid user id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
-	if err := h.userOrchestration.DeleteUser(uint(id)); err != nil {
+	if err := h.userOrchestration.DeleteUser(id); err != nil {
 		utils.BadRequest(c, err.Error())
 		return
 	}
@@ -204,14 +200,12 @@ func (h *UserHandler) Delete(c *gin.Context) {
 // @Failure      404  {object}  utils.Response
 // @Router       /users/{id} [get]
 func (h *UserHandler) Get(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid user id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
-	user, err := h.userOrchestration.GetUser(uint(id))
+	user, err := h.userOrchestration.GetUser(id)
 	if err != nil {
 		utils.NotFound(c, "user not found")
 		return
@@ -253,21 +247,11 @@ func (h *UserHandler) Get(c *gin.Context) {
 // @Param        username   query  string  false  "用户名（模糊搜索）"
 // @Param        status     query  string  false  "状态（0=禁用，1=启用）"
 // @Param        role_id    query  string  false  "角色 ID"
-// @Success      200  {object}  utils.PageResponse
+// @Success      200  {object}  utils.PageResult
 // @Failure      500  {object}  utils.Response
 // @Router       /users [get]
 func (h *UserHandler) List(c *gin.Context) {
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "10")
-
-	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		page = 1
-	}
-	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil || pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
+	pg := utils.GetPagination(c)
 
 	conditions := make(map[string]interface{})
 	if username := c.Query("username"); username != "" {
@@ -280,7 +264,7 @@ func (h *UserHandler) List(c *gin.Context) {
 		conditions["role_id = ?"] = roleID
 	}
 
-	users, total, err := h.userOrchestration.ListUsers(page, pageSize, conditions)
+	users, total, err := h.userOrchestration.ListUsers(pg.Page, pg.PageSize, conditions)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
@@ -310,7 +294,7 @@ func (h *UserHandler) List(c *gin.Context) {
 		}
 	}
 
-	utils.PageSuccess(c, userList, total, page, pageSize)
+	utils.PageSuccess(c, userList, total, pg.Page, pg.PageSize)
 }
 
 // ChangePassword godoc
@@ -354,10 +338,8 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /users/{id}/role [put]
 func (h *UserHandler) AssignRole(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid user id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
@@ -370,7 +352,7 @@ func (h *UserHandler) AssignRole(c *gin.Context) {
 		return
 	}
 
-	if err := h.userOrchestration.AssignRole(uint(id), req.RoleID); err != nil {
+	if err := h.userOrchestration.AssignRole(id, req.RoleID); err != nil {
 		utils.BadRequest(c, err.Error())
 		return
 	}
@@ -378,7 +360,7 @@ func (h *UserHandler) AssignRole(c *gin.Context) {
 	utils.Success(c, nil)
 
 	currentUser := infraMiddleware.GetUsername(c)
-	h.events.SendNotification(currentUser, "角色分配", "为用户 #"+idStr+" 分配了新角色")
+	h.events.SendNotification(currentUser, "角色分配", "为用户 #"+strconv.FormatUint(uint64(id), 10)+" 分配了新角色")
 }
 
 // @Summary      批量分配角色
@@ -652,10 +634,8 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /users/{id}/status [put]
 func (h *UserHandler) UpdateStatus(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid user id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
@@ -667,7 +647,7 @@ func (h *UserHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.userOrchestration.UpdateStatus(uint(id), req.Status); err != nil {
+	if err := h.userOrchestration.UpdateStatus(id, req.Status); err != nil {
 		utils.BadRequest(c, err.Error())
 		return
 	}
@@ -679,7 +659,7 @@ func (h *UserHandler) UpdateStatus(c *gin.Context) {
 		statusText = "禁用"
 	}
 	currentUser := infraMiddleware.GetUsername(c)
-	h.events.SendNotification(currentUser, "用户状态变更", "已将用户 #"+idStr+" "+statusText)
+	h.events.SendNotification(currentUser, "用户状态变更", "已将用户 #"+strconv.FormatUint(uint64(id), 10)+" "+statusText)
 }
 
 // ImportUsers godoc

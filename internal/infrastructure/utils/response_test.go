@@ -71,10 +71,4 @@ func TestPageSuccess(t *testing.T) {
 	}
 }
 
-func TestSuccessWithMessage(t *testing.T) {
-	c, w := setupTestContext()
-	SuccessWithMessage(c, "ok", nil)
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", w.Code)
-	}
-}
+

@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
@@ -66,10 +64,8 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /permissions/{id} [put]
 func (h *PermissionHandler) Update(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid permission id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
@@ -81,7 +77,7 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.permOrchestration.UpdatePermission(&orchestration.UpdatePermissionRequest{
-		ID:       uint(id),
+		ID:       id,
 		Name:     req.Name,
 		Code:     req.Code,
 		Type:     req.Type,
@@ -109,14 +105,12 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /permissions/{id} [delete]
 func (h *PermissionHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid permission id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
-	if err := h.permOrchestration.DeletePermission(uint(id)); err != nil {
+	if err := h.permOrchestration.DeletePermission(id); err != nil {
 		utils.BadRequest(c, err.Error())
 		return
 	}
@@ -136,14 +130,12 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 // @Failure      404  {object}  utils.Response
 // @Router       /permissions/{id} [get]
 func (h *PermissionHandler) Get(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid permission id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
-	p, err := h.permOrchestration.GetPermission(uint(id))
+	p, err := h.permOrchestration.GetPermission(id)
 	if err != nil {
 		utils.NotFound(c, "permission not found")
 		return
@@ -172,23 +164,13 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        page       query  int  false  "页码（默认 1）"
 // @Param        page_size  query  int  false  "每页条数（默认 10，最大 100）"
-// @Success      200  {object}  utils.PageResponse
+// @Success      200  {object}  utils.PageResult
 // @Failure      500  {object}  utils.Response
 // @Router       /permissions [get]
 func (h *PermissionHandler) List(c *gin.Context) {
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "10")
+	pg := utils.GetPagination(c)
 
-	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		page = 1
-	}
-	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil || pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
-
-	perms, total, err := h.permOrchestration.ListPermissions(page, pageSize)
+	perms, total, err := h.permOrchestration.ListPermissions(pg.Page, pg.PageSize)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
@@ -209,7 +191,7 @@ func (h *PermissionHandler) List(c *gin.Context) {
 		}
 	}
 
-	utils.PageSuccess(c, permList, total, page, pageSize)
+	utils.PageSuccess(c, permList, total, pg.Page, pg.PageSize)
 }
 
 // ListAll godoc

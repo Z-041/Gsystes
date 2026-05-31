@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 type CreateRoleRequest struct {
 	Name        string `json:"name" binding:"required,max=64"`
 	Code        string `json:"code" binding:"required,max=64"`
@@ -15,4 +17,20 @@ type UpdateRoleRequest struct {
 
 type AssignPermissionsRequest struct {
 	PermissionIDs []uint `json:"permission_ids" binding:"required"`
+}
+
+type RoleResponse struct {
+	ID          uint      `json:"id"`
+	Name        string    `json:"name"`
+	Code        string    `json:"code"`
+	Description string    `json:"description"`
+	Status      int       `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at,omitempty"`
+}
+
+type RoleSimpleResponse struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+	Code string `json:"code"`
 }

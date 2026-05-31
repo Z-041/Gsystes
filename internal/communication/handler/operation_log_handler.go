@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,17 +19,7 @@ func NewOperationLogHandler(logOrchestration *orchestration.OperationLogOrchestr
 }
 
 func (h *OperationLogHandler) List(c *gin.Context) {
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "10")
-
-	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		page = 1
-	}
-	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil || pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
+	pg := utils.GetPagination(c)
 
 	var filter repository.LogFilter
 	if username := c.Query("username"); username != "" {
@@ -59,7 +48,7 @@ func (h *OperationLogHandler) List(c *gin.Context) {
 		}
 	}
 
-	logs, total, err := h.logOrchestration.ListLogs(page, pageSize, &filter)
+	logs, total, err := h.logOrchestration.ListLogs(pg.Page, pg.PageSize, &filter)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
@@ -75,8 +64,6 @@ func (h *OperationLogHandler) List(c *gin.Context) {
 			"id":           l.ID,
 			"user_id":      l.UserID,
 			"username":     l.Username,
-			"module":       extractModule(l.Path),
-			"action":       methodToAction(l.Method),
 			"method":       l.Method,
 			"path":         l.Path,
 			"ip":           l.ClientIP,
@@ -87,33 +74,5 @@ func (h *OperationLogHandler) List(c *gin.Context) {
 		}
 	}
 
-	utils.PageSuccess(c, logList, total, page, pageSize)
-}
-
-func extractModule(path string) string {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) >= 2 {
-		return parts[1]
-	}
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	return "other"
-}
-
-func methodToAction(method string) string {
-	switch method {
-	case "GET":
-		return "查询"
-	case "POST":
-		return "新增"
-	case "PUT":
-		return "修改"
-	case "DELETE":
-		return "删除"
-	case "PATCH":
-		return "修改"
-	default:
-		return method
-	}
+	utils.PageSuccess(c, logList, total, pg.Page, pg.PageSize)
 }

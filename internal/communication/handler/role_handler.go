@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 	"github.com/gsystes/backend/internal/communication/dto"
 	infraMiddleware "github.com/gsystes/backend/internal/infrastructure/middleware"
@@ -68,10 +66,8 @@ func (h *RoleHandler) Create(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /roles/{id} [put]
 func (h *RoleHandler) Update(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid role id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
@@ -83,7 +79,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.roleOrchestration.UpdateRole(&orchestration.UpdateRoleRequest{
-		ID:          uint(id),
+		ID:          id,
 		Name:        req.Name,
 		Code:        req.Code,
 		Description: req.Description,
@@ -108,14 +104,12 @@ func (h *RoleHandler) Update(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /roles/{id} [delete]
 func (h *RoleHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid role id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
-	if err := h.roleOrchestration.DeleteRole(uint(id)); err != nil {
+	if err := h.roleOrchestration.DeleteRole(id); err != nil {
 		utils.BadRequest(c, err.Error())
 		return
 	}
@@ -139,28 +133,25 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 // @Failure      404  {object}  utils.Response
 // @Router       /roles/{id} [get]
 func (h *RoleHandler) Get(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid role id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
-	role, err := h.roleOrchestration.GetRole(uint(id))
+	role, err := h.roleOrchestration.GetRole(id)
 	if err != nil {
 		utils.NotFound(c, "role not found")
 		return
 	}
 
-	utils.Success(c, gin.H{
-		"id":          role.ID,
-		"name":        role.Name,
-		"code":        role.Code,
-		"description": role.Description,
-		"status":      role.Status,
-		"permissions": role.Permissions,
-		"created_at":  role.CreatedAt,
-		"updated_at":  role.UpdatedAt,
+	utils.Success(c, dto.RoleResponse{
+		ID:          role.ID,
+		Name:        role.Name,
+		Code:        role.Code,
+		Description: role.Description,
+		Status:      role.Status,
+		CreatedAt:   role.CreatedAt,
+		UpdatedAt:   role.UpdatedAt,
 	})
 }
 
@@ -173,41 +164,28 @@ func (h *RoleHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        page       query  int  false  "页码（默认 1）"
 // @Param        page_size  query  int  false  "每页条数（默认 10，最大 100）"
-// @Success      200  {object}  utils.PageResponse
+// @Success      200  {object}  utils.PageResult
 // @Failure      500  {object}  utils.Response
 // @Router       /roles [get]
 func (h *RoleHandler) List(c *gin.Context) {
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("page_size", "10")
+	pg := utils.GetPagination(c)
 
-	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
-		page = 1
-	}
-	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil || pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
-
-	roles, total, err := h.roleOrchestration.ListRoles(page, pageSize)
+	roles, total, err := h.roleOrchestration.ListRoles(pg.Page, pg.PageSize)
 	if err != nil {
 		utils.InternalError(c, err.Error())
 		return
 	}
 
-	roleList := make([]gin.H, len(roles))
+	roleList := make([]dto.RoleSimpleResponse, len(roles))
 	for i, r := range roles {
-		roleList[i] = gin.H{
-			"id":          r.ID,
-			"name":        r.Name,
-			"code":        r.Code,
-			"description": r.Description,
-			"status":      r.Status,
-			"created_at":  r.CreatedAt,
+		roleList[i] = dto.RoleSimpleResponse{
+			ID:   r.ID,
+			Name: r.Name,
+			Code: r.Code,
 		}
 	}
 
-	utils.PageSuccess(c, roleList, total, page, pageSize)
+	utils.PageSuccess(c, roleList, total, pg.Page, pg.PageSize)
 }
 
 // ListAll godoc
@@ -226,12 +204,12 @@ func (h *RoleHandler) ListAll(c *gin.Context) {
 		return
 	}
 
-	roleList := make([]gin.H, len(roles))
+	roleList := make([]dto.RoleSimpleResponse, len(roles))
 	for i, r := range roles {
-		roleList[i] = gin.H{
-			"id":   r.ID,
-			"name": r.Name,
-			"code": r.Code,
+		roleList[i] = dto.RoleSimpleResponse{
+			ID:   r.ID,
+			Name: r.Name,
+			Code: r.Code,
 		}
 	}
 
@@ -251,10 +229,8 @@ func (h *RoleHandler) ListAll(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /roles/{id}/permissions [post]
 func (h *RoleHandler) AssignPermissions(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid role id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
@@ -266,7 +242,7 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	}
 
 	if err := h.roleOrchestration.AssignPermissions(&orchestration.AssignPermissionsRequest{
-		RoleID:        uint(id),
+		RoleID:        id,
 		PermissionIDs: req.PermissionIDs,
 	}); err != nil {
 		utils.BadRequest(c, err.Error())
@@ -291,14 +267,12 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /roles/{id}/permissions [get]
 func (h *RoleHandler) GetPermissions(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		utils.BadRequest(c, "invalid role id")
+	id, ok := utils.ParseID(c)
+	if !ok {
 		return
 	}
 
-	permissions, err := h.roleOrchestration.GetRolePermissions(uint(id))
+	permissions, err := h.roleOrchestration.GetRolePermissions(id)
 	if err != nil {
 		utils.BadRequest(c, err.Error())
 		return
