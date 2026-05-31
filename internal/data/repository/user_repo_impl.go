@@ -68,16 +68,7 @@ func (r *userRepository) Create(user *domainEntity.User) error {
 }
 
 func (r *userRepository) Update(user *domainEntity.User) error {
-	return r.db.Model(&model.User{}).Where("id = ?", user.ID).Updates(map[string]interface{}{
-		"username": user.Username,
-		"password": user.Password,
-		"nickname": user.Nickname,
-		"email":    user.Email,
-		"phone":    user.Phone,
-		"avatar":   user.Avatar,
-		"status":   user.Status,
-		"role_id":  user.RoleID,
-	}).Error
+	return r.db.Model(&model.User{}).Where("id = ?", user.ID).Updates(r.toModel(user)).Error
 }
 
 func (r *userRepository) Delete(id uint) error {
