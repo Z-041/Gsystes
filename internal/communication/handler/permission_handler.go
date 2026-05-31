@@ -48,7 +48,7 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{"id": p.ID})
+	utils.Success(c, dto.IDResponse{ID: p.ID})
 }
 
 // Update godoc
@@ -141,17 +141,17 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{
-		"id":         p.ID,
-		"name":       p.Name,
-		"code":       p.Code,
-		"type":       p.Type,
-		"parent_id":  p.ParentID,
-		"path":       p.Path,
-		"method":     p.Method,
-		"sort":       p.Sort,
-		"created_at": p.CreatedAt,
-		"updated_at": p.UpdatedAt,
+	utils.Success(c, dto.PermissionResponse{
+		ID:        p.ID,
+		Name:      p.Name,
+		Code:      p.Code,
+		Type:      p.Type,
+		ParentID:  p.ParentID,
+		Path:      p.Path,
+		Method:    p.Method,
+		Sort:      p.Sort,
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
 	})
 }
 
@@ -176,18 +176,18 @@ func (h *PermissionHandler) List(c *gin.Context) {
 		return
 	}
 
-	permList := make([]gin.H, len(perms))
+	permList := make([]dto.PermissionResponse, len(perms))
 	for i, p := range perms {
-		permList[i] = gin.H{
-			"id":         p.ID,
-			"name":       p.Name,
-			"code":       p.Code,
-			"type":       p.Type,
-			"parent_id":  p.ParentID,
-			"path":       p.Path,
-			"method":     p.Method,
-			"sort":       p.Sort,
-			"created_at": p.CreatedAt,
+		permList[i] = dto.PermissionResponse{
+			ID:        p.ID,
+			Name:      p.Name,
+			Code:      p.Code,
+			Type:      p.Type,
+			ParentID:  p.ParentID,
+			Path:      p.Path,
+			Method:    p.Method,
+			Sort:      p.Sort,
+			CreatedAt: p.CreatedAt,
 		}
 	}
 
@@ -210,17 +210,17 @@ func (h *PermissionHandler) ListAll(c *gin.Context) {
 		return
 	}
 
-	permList := make([]gin.H, len(perms))
+	permList := make([]dto.PermissionResponse, len(perms))
 	for i, p := range perms {
-		permList[i] = gin.H{
-			"id":        p.ID,
-			"name":      p.Name,
-			"code":      p.Code,
-			"type":      p.Type,
-			"parent_id": p.ParentID,
-			"path":      p.Path,
-			"method":    p.Method,
-			"sort":      p.Sort,
+		permList[i] = dto.PermissionResponse{
+			ID:       p.ID,
+			Name:     p.Name,
+			Code:     p.Code,
+			Type:     p.Type,
+			ParentID: p.ParentID,
+			Path:     p.Path,
+			Method:   p.Method,
+			Sort:     p.Sort,
 		}
 	}
 

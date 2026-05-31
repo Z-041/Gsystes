@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gsystes/backend/internal/communication/dto"
 	"github.com/gsystes/backend/internal/domain/entity"
 	domainRepo "github.com/gsystes/backend/internal/domain/repository"
 	domainService "github.com/gsystes/backend/internal/domain/service"
@@ -164,16 +165,7 @@ func (s *UserOrchestration) GetUsersByRole(roleID uint) ([]entity.User, error) {
 	return s.userRepo.FindByRoleID(roleID)
 }
 
-type MenuTreeNode struct {
-	ID       uint            `json:"id"`
-	Name     string          `json:"name"`
-	Code     string          `json:"code"`
-	Path     string          `json:"path"`
-	Sort     int             `json:"sort"`
-	Children []*MenuTreeNode `json:"children"`
-}
-
-func buildMenuTree(permissions []entity.Permission, parentID uint) []*MenuTreeNode {
+func buildMenuTree(permissions []entity.Permission, parentID uint) []*dto.MenuTreeNode {
 	childrenMap := make(map[uint][]entity.Permission)
 	roots := make([]entity.Permission, 0)
 
@@ -187,15 +179,15 @@ func buildMenuTree(permissions []entity.Permission, parentID uint) []*MenuTreeNo
 		childrenMap[p.ParentID] = append(childrenMap[p.ParentID], p)
 	}
 
-	var build func(pid uint) []*MenuTreeNode
-	build = func(pid uint) []*MenuTreeNode {
+	var build func(pid uint) []*dto.MenuTreeNode
+	build = func(pid uint) []*dto.MenuTreeNode {
 		children, ok := childrenMap[pid]
 		if !ok {
 			return nil
 		}
-		nodes := make([]*MenuTreeNode, 0, len(children))
+		nodes := make([]*dto.MenuTreeNode, 0, len(children))
 		for _, p := range children {
-			node := &MenuTreeNode{
+			node := &dto.MenuTreeNode{
 				ID:       p.ID,
 				Name:     p.Name,
 				Code:     p.Code,
@@ -230,7 +222,7 @@ func (s *UserOrchestration) GetCurrentUserPermissions(userID uint) ([]string, er
 	return codes, nil
 }
 
-func (s *UserOrchestration) GetCurrentUserMenus(userID uint) ([]*MenuTreeNode, error) {
+func (s *UserOrchestration) GetCurrentUserMenus(userID uint) ([]*dto.MenuTreeNode, error) {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)

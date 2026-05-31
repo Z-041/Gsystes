@@ -46,7 +46,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{"id": role.ID})
+	utils.Success(c, dto.IDResponse{ID: role.ID})
 
 	h.events.BroadcastStats()
 	currentUser := infraMiddleware.GetUsername(c)

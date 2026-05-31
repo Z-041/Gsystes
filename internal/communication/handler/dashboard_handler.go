@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/gsystes/backend/internal/communication/dto"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 )
@@ -23,9 +24,9 @@ func (h *DashboardHandler) Stats(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{
-		"user_count":      stats.UserCount,
-		"role_count":      stats.RoleCount,
-		"today_log_count": stats.TodayLogCount,
+	utils.Success(c, dto.DashboardStatsResponse{
+		UserCount:     stats.UserCount,
+		RoleCount:     stats.RoleCount,
+		TodayLogCount: stats.TodayLogCount,
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -64,14 +65,14 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{
-		"token": resp.Token,
-		"user": gin.H{
-			"id":       resp.User.ID,
-			"username": resp.User.Username,
-			"nickname": resp.User.Nickname,
-			"avatar":   resp.User.Avatar,
-			"role_id":  resp.User.RoleID,
+	utils.Success(c, dto.LoginResponse{
+		Token: resp.Token,
+		User: dto.UserSimple{
+			ID:       resp.User.ID,
+			Username: resp.User.Username,
+			Nickname: resp.User.Nickname,
+			Avatar:   resp.User.Avatar,
+			RoleID:   resp.User.RoleID,
 		},
 	})
 }
@@ -108,9 +109,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{
-		"id": user.ID,
-	})
+	utils.Success(c, dto.IDResponse{ID: user.ID})
 
 	h.events.BroadcastStats()
 	name := user.Nickname
@@ -211,28 +210,27 @@ func (h *UserHandler) Get(c *gin.Context) {
 		return
 	}
 
-	roleInfo := gin.H{}
+	resp := dto.UserResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Nickname:  user.Nickname,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		Avatar:    user.Avatar,
+		Status:    user.Status,
+		RoleID:    user.RoleID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
 	if user.Role != nil {
-		roleInfo = gin.H{
-			"id":   user.Role.ID,
-			"name": user.Role.Name,
-			"code": user.Role.Code,
+		resp.Role = &dto.RoleSimpleResponse{
+			ID:   user.Role.ID,
+			Name: user.Role.Name,
+			Code: user.Role.Code,
 		}
 	}
 
-	utils.Success(c, gin.H{
-		"id":         user.ID,
-		"username":   user.Username,
-		"nickname":   user.Nickname,
-		"email":      user.Email,
-		"phone":      user.Phone,
-		"avatar":     user.Avatar,
-		"status":     user.Status,
-		"role_id":    user.RoleID,
-		"role":       roleInfo,
-		"created_at": user.CreatedAt,
-		"updated_at": user.UpdatedAt,
-	})
+	utils.Success(c, resp)
 }
 
 // List godoc
@@ -270,28 +268,27 @@ func (h *UserHandler) List(c *gin.Context) {
 		return
 	}
 
-	userList := make([]gin.H, len(users))
+	userList := make([]dto.UserListItem, len(users))
 	for i, u := range users {
-		roleInfo := gin.H{}
+		item := dto.UserListItem{
+			ID:        u.ID,
+			Username:  u.Username,
+			Nickname:  u.Nickname,
+			Email:     u.Email,
+			Phone:     u.Phone,
+			Avatar:    u.Avatar,
+			Status:    u.Status,
+			RoleID:    u.RoleID,
+			CreatedAt: u.CreatedAt,
+		}
 		if u.Role != nil {
-			roleInfo = gin.H{
-				"id":   u.Role.ID,
-				"name": u.Role.Name,
-				"code": u.Role.Code,
+			item.Role = &dto.RoleSimpleResponse{
+				ID:   u.Role.ID,
+				Name: u.Role.Name,
+				Code: u.Role.Code,
 			}
 		}
-		userList[i] = gin.H{
-			"id":         u.ID,
-			"username":   u.Username,
-			"nickname":   u.Nickname,
-			"email":      u.Email,
-			"phone":      u.Phone,
-			"avatar":     u.Avatar,
-			"status":     u.Status,
-			"role_id":    u.RoleID,
-			"role":       roleInfo,
-			"created_at": u.CreatedAt,
-		}
+		userList[i] = item
 	}
 
 	utils.PageSuccess(c, userList, total, pg.Page, pg.PageSize)
@@ -343,9 +340,7 @@ func (h *UserHandler) AssignRole(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		RoleID uint `json:"role_id" binding:"required"`
-	}
+	var req dto.AssignRoleRequest
 	valErrors := utils.BindAndValidate(c, &req)
 	if valErrors != nil {
 		utils.BadRequest(c, "invalid request parameters")
@@ -421,14 +416,14 @@ func (h *UserHandler) GetUsersByRole(c *gin.Context) {
 		return
 	}
 
-	userList := make([]gin.H, len(users))
+	userList := make([]dto.UserByRoleItem, len(users))
 	for i, u := range users {
-		userList[i] = gin.H{
-			"id":       u.ID,
-			"username": u.Username,
-			"nickname": u.Nickname,
-			"email":    u.Email,
-			"status":   u.Status,
+		userList[i] = dto.UserByRoleItem{
+			ID:       u.ID,
+			Username: u.Username,
+			Nickname: u.Nickname,
+			Email:    u.Email,
+			Status:   u.Status,
 		}
 	}
 
@@ -489,18 +484,26 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		utils.NotFound(c, "user not found")
 		return
 	}
-	utils.Success(c, gin.H{
-		"id":         user.ID,
-		"username":   user.Username,
-		"nickname":   user.Nickname,
-		"email":      user.Email,
-		"phone":      user.Phone,
-		"avatar":     user.Avatar,
-		"status":     user.Status,
-		"role_id":    user.RoleID,
-		"created_at": user.CreatedAt,
-		"updated_at": user.UpdatedAt,
-	})
+	resp := dto.UserResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Nickname:  user.Nickname,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		Avatar:    user.Avatar,
+		Status:    user.Status,
+		RoleID:    user.RoleID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+	if user.Role != nil {
+		resp.Role = &dto.RoleSimpleResponse{
+			ID:   user.Role.ID,
+			Name: user.Role.Name,
+			Code: user.Role.Code,
+		}
+	}
+	utils.Success(c, resp)
 }
 
 // UpdateProfile godoc
@@ -515,12 +518,9 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // @Failure      400  {object}  utils.Response
 // @Router       /users/profile [put]
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	var req struct {
-		Nickname string `json:"nickname"`
-		Email    string `json:"email"`
-		Phone    string `json:"phone"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var req dto.UpdateProfileRequest
+	valErrors := utils.BindAndValidate(c, &req)
+	if valErrors != nil {
 		utils.BadRequest(c, "invalid request parameters")
 		return
 	}
@@ -609,7 +609,7 @@ func (h *UserHandler) UpdateAvatar(c *gin.Context) {
 	avatarURL := "/uploads/avatars/" + filename
 	userID := infraMiddleware.GetUserID(c)
 
-	utils.Success(c, gin.H{"url": avatarURL})
+	utils.Success(c, dto.AvatarResponse{URL: avatarURL})
 
 	go func() {
 		if err := h.userOrchestration.UpdateAvatar(userID, avatarURL); err != nil {
@@ -639,10 +639,9 @@ func (h *UserHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Status int `json:"status" binding:"required,oneof=1 2"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var req dto.UpdateStatusRequest
+	valErrors := utils.BindAndValidate(c, &req)
+	if valErrors != nil {
 		utils.BadRequest(c, "invalid status, must be 1(active) or 2(inactive)")
 		return
 	}
@@ -706,14 +705,54 @@ func (h *UserHandler) ImportUsers(c *gin.Context) {
 		if len(cols) < 2 {
 			continue
 		}
-		roleID, _ := strconv.ParseUint(cols[5], 10, 64)
+
+		username := strings.TrimSpace(cols[0])
+		password := strings.TrimSpace(cols[1])
+		if username == "" {
+			utils.BadRequest(c, fmt.Sprintf("row %d: username is empty", i+1))
+			return
+		}
+		if len(username) < 3 || len(username) > 64 {
+			utils.BadRequest(c, fmt.Sprintf("row %d: username length must be 3-64 characters", i+1))
+			return
+		}
+		if len(password) < 6 {
+			utils.BadRequest(c, fmt.Sprintf("row %d: password length must be at least 6 characters", i+1))
+			return
+		}
+
+		nickname := ""
+		if len(cols) > 2 {
+			nickname = cols[2]
+		}
+		email := ""
+		if len(cols) > 3 {
+			email = cols[3]
+		}
+		phone := ""
+		if len(cols) > 4 {
+			phone = cols[4]
+		}
+		roleID := uint(0)
+		if len(cols) > 5 {
+			parsed, err := strconv.ParseUint(cols[5], 10, 64)
+			if err != nil || parsed == 0 {
+				utils.BadRequest(c, fmt.Sprintf("row %d: invalid role_id", i+1))
+				return
+			}
+			roleID = uint(parsed)
+		} else {
+			utils.BadRequest(c, fmt.Sprintf("row %d: role_id is required", i+1))
+			return
+		}
+
 		users = append(users, &orchestration.CreateUserRequest{
-			Username: cols[0],
-			Password: cols[1],
-			Nickname: cols[2],
-			Email:    cols[3],
-			Phone:    cols[4],
-			RoleID:   uint(roleID),
+			Username: username,
+			Password: password,
+			Nickname: nickname,
+			Email:    email,
+			Phone:    phone,
+			RoleID:   roleID,
 		})
 	}
 
@@ -727,7 +766,7 @@ func (h *UserHandler) ImportUsers(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, gin.H{"count": len(users)})
+	utils.Success(c, dto.ImportResult{Count: len(users)})
 
 	h.events.BroadcastStats()
 	count := len(users)

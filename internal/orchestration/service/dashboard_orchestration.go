@@ -5,9 +5,9 @@ import (
 )
 
 type DashboardStats struct {
-	UserCount     int64 `json:"user_count"`
-	RoleCount     int64 `json:"role_count"`
-	TodayLogCount int64 `json:"today_log_count"`
+	UserCount     int64
+	RoleCount     int64
+	TodayLogCount int64
 }
 
 type DashboardOrchestration struct {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gsystes/backend/internal/communication/dto"
 	"github.com/gsystes/backend/internal/domain/repository"
 	"github.com/gsystes/backend/internal/infrastructure/utils"
 	orchestration "github.com/gsystes/backend/internal/orchestration/service"
@@ -54,23 +55,23 @@ func (h *OperationLogHandler) List(c *gin.Context) {
 		return
 	}
 
-	logList := make([]gin.H, len(logs))
+	logList := make([]dto.OperationLogResponse, len(logs))
 	for i, l := range logs {
 		reqBody := l.Body
 		if reqBody == "" {
 			reqBody = l.Query
 		}
-		logList[i] = gin.H{
-			"id":           l.ID,
-			"user_id":      l.UserID,
-			"username":     l.Username,
-			"method":       l.Method,
-			"path":         l.Path,
-			"ip":           l.ClientIP,
-			"duration":     l.Latency,
-			"request_body": reqBody,
-			"status_code":  l.StatusCode,
-			"created_at":   l.CreatedAt,
+		logList[i] = dto.OperationLogResponse{
+			ID:          l.ID,
+			UserID:      l.UserID,
+			Username:    l.Username,
+			Method:      l.Method,
+			Path:        l.Path,
+			IP:          l.ClientIP,
+			Duration:    l.Latency,
+			RequestBody: reqBody,
+			StatusCode:  l.StatusCode,
+			CreatedAt:   l.CreatedAt,
 		}
 	}
 
